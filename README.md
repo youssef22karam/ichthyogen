@@ -8,30 +8,30 @@ single file being cut off.
 ## Why it looks split
 
 The fish engine is one large ES module. In the original project it was a
-single file, `src/engine/fishgen.js` (508,828 bytes). Here it lives as 20
+single file, `src/engine/fishgen.js` (513,558 bytes). Here it lives as 20
 sequential parts:
 
 ```
-src/engine/parts/fishgen.part01.js   (lines 1–212 of the module)
-src/engine/parts/fishgen.part02.js   (lines 213–256 of the module)
-src/engine/parts/fishgen.part03.js   (lines 257–298 of the module)
-src/engine/parts/fishgen.part04.js   (lines 299–461 of the module)
-src/engine/parts/fishgen.part05.js   (lines 462–647 of the module)
-src/engine/parts/fishgen.part06.js   (lines 648–861 of the module)
-src/engine/parts/fishgen.part07.js   (lines 862–1097 of the module)
-src/engine/parts/fishgen.part08.js   (lines 1098–1395 of the module)
-src/engine/parts/fishgen.part09.js   (lines 1396–1686 of the module)
-src/engine/parts/fishgen.part10.js   (lines 1687–1990 of the module)
-src/engine/parts/fishgen.part11.js   (lines 1991–2239 of the module)
-src/engine/parts/fishgen.part12.js   (lines 2240–2581 of the module)
-src/engine/parts/fishgen.part13.js   (lines 2582–2722 of the module)
-src/engine/parts/fishgen.part14.js   (lines 2723–2929 of the module)
-src/engine/parts/fishgen.part15.js   (lines 2930–3053 of the module)
-src/engine/parts/fishgen.part16.js   (lines 3054–3344 of the module)
-src/engine/parts/fishgen.part17.js   (lines 3345–3508 of the module)
-src/engine/parts/fishgen.part18.js   (lines 3509–3687 of the module)
-src/engine/parts/fishgen.part19.js   (lines 3688–3869 of the module)
-src/engine/parts/fishgen.part20.js   (lines 3870–3944 of the module)
+src/engine/parts/fishgen.part01.js   (lines 1–214 of the module)
+src/engine/parts/fishgen.part02.js   (lines 215–258 of the module)
+src/engine/parts/fishgen.part03.js   (lines 259–300 of the module)
+src/engine/parts/fishgen.part04.js   (lines 301–463 of the module)
+src/engine/parts/fishgen.part05.js   (lines 464–649 of the module)
+src/engine/parts/fishgen.part06.js   (lines 650–863 of the module)
+src/engine/parts/fishgen.part07.js   (lines 864–1106 of the module)
+src/engine/parts/fishgen.part08.js   (lines 1107–1404 of the module)
+src/engine/parts/fishgen.part09.js   (lines 1405–1703 of the module)
+src/engine/parts/fishgen.part10.js   (lines 1704–1984 of the module)
+src/engine/parts/fishgen.part11.js   (lines 1985–2233 of the module)
+src/engine/parts/fishgen.part12.js   (lines 2234–2586 of the module)
+src/engine/parts/fishgen.part13.js   (lines 2587–2727 of the module)
+src/engine/parts/fishgen.part14.js   (lines 2728–2938 of the module)
+src/engine/parts/fishgen.part15.js   (lines 2939–3062 of the module)
+src/engine/parts/fishgen.part16.js   (lines 3063–3361 of the module)
+src/engine/parts/fishgen.part17.js   (lines 3362–3525 of the module)
+src/engine/parts/fishgen.part18.js   (lines 3526–3704 of the module)
+src/engine/parts/fishgen.part19.js   (lines 3705–3886 of the module)
+src/engine/parts/fishgen.part20.js   (lines 3887–3961 of the module)
 ```
 
 The parts are **one continuous module in filename order** — the `import`
@@ -57,6 +57,16 @@ silently break. Run it on its own any time with `npm run reassemble`.
 
 The build output is a single self-contained HTML file
 (`dist/index.html`, ~1.3 MB, everything inlined via vite-plugin-singlefile).
+
+## Global anatomy laws (mouths, eyes, fins, tails, flattened plan)
+
+`src/engine/laws.js` holds the universal laws, expressed only through the
+generator's axes (BODY PLAN, FEEDING NICHE, SWIM MODE, DEPTH/HABITAT). They
+run as the `anatomy_laws` repair rule, drive the geometry builders
+(`src/engine/mouthgeo.js` is the mouth constructor), and are asserted by
+`src/engine/validate.js` (`tail` and `plan` invariants) and the mesh audit.
+See `docs/anatomy-laws.md`; `docs/verify-report.txt` is the 10,000 / 1,000
+population report (`npm run reassemble && node tools/verify.mjs`).
 
 ## Notes
 

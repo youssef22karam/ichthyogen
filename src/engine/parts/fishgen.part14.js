@@ -67,6 +67,10 @@ function tweenCamera(to, target) {
 function setCameraView(view) {
   if (!App.fish) return;
   const center = App.fish.info.bounds.getCenter(new THREE.Vector3()), size = App.fish.info.bounds.getSize(new THREE.Vector3()), r = Math.max(size.length() * .5, .001), distance = r / Math.sin(camera.fov * Math.PI / 360) * 1.12;
+  const bm = App.fish.bm, L = bm.L, lm3 = {}; for (const l of App.fish.info.landmarks3D) lm3[l.name] = l;
+  /* law close-ups: framed on the anatomical landmark the law governs (mouth / eye / tail / underside / fin) */
+  const close = { mouth: [lm3.mouthCorner, new THREE.Vector3(1, .15, .9), .22], eye: [lm3.eye, new THREE.Vector3(.35, .25, 1), .18], tail: [lm3.caudalBase, new THREE.Vector3(-.3, .1, 1), .45], fin: [lm3.pectoralBase, new THREE.Vector3(.2, -.2, 1), .35], below: [null, new THREE.Vector3(.03, -1, .02), 1.12] };
+  if (close[view]) { const [lmk, d, k] = close[view], tgt = lmk ? new THREE.Vector3(lmk.x, lmk.y, lmk.z) : center; tweenCamera(tgt.clone().addScaledVector(d.normalize(), (lmk ? L * k : distance * k)), tgt); return; }
   const dir = view === 'top' ? new THREE.Vector3(.04, 1, .001) : view === 'head' ? new THREE.Vector3(1, .06, .01) : new THREE.Vector3(.02, .05, 1);
   tweenCamera(center.clone().addScaledVector(dir.normalize(), distance), center);
 }

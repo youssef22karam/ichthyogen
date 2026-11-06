@@ -3,6 +3,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { installProcUI } from './procui.js';
+import * as LAW from './laws.js';
+import * as MOUTH from './mouthgeo.js';
 
 /* ╔══════════════════════════════════════════════════════════════════╗
    ║ 0. NAMESPACE, UTILS, SEEDED PRNG                                 ║

@@ -145,10 +145,11 @@ function checkFishGeometry(fish) {
   if (fish.bm.a.family === 'ray' || fish.bm.a.family === 'benthicShark') {
     let minZ = Infinity, maxZ = -Infinity, minY = Infinity, maxY = -Infinity;
     for (let i = 0; i < pos.count; i++) { minZ = Math.min(minZ, pos.getZ(i)); maxZ = Math.max(maxZ, pos.getZ(i)); minY = Math.min(minY, pos.getY(i)); maxY = Math.max(maxY, pos.getY(i)); }
-    if (fish.bm.isManta && (maxZ - minZ < L * 1.5 || (maxZ - minZ) / Math.max(L * .01, maxY - minY) < 4.5)) errors.push('Manta disc is too narrow or too thick');
-    const flags = fish.parts.fins.geometry.getAttribute('aFin');
-    for (let i = 0; i < flags.count; i++) if (flags.getW(i) === 3) { errors.push('Batoid pectorals are detached sheets'); break; }
-    if (fish.parts.jaw && fish.bm.isManta) errors.push('Manta has a hinged bony jaw');
+    /* flattened plan: a disc (width ≫ thickness), its margin built by the fin constructor and rooted on the disc edge, no hinged jaw on the full form */
+    if (fish.bm.law.flat.flat >= 1 && (maxZ - minZ) / Math.max(L * .01, maxY - minY) < 2.2) errors.push('Flattened plan is not a disc');
+    const att = (fish.info.attachments || []).filter(x => x.kind === 'pectoral');
+    if (!att.length) errors.push('Flattened plan margin fin is not rooted on the disc');
+    if (fish.parts.jaw && fish.bm.law.flat.flat >= 1) errors.push('Flattened plan has a hinged jaw');
   }
   if (fish.parts.jaw) {
     const tissue = fish.parts.jaw.geometry.getAttribute('aBody');
@@ -156,6 +157,13 @@ function checkFishGeometry(fish) {
   }
   if (g.meta.species === 'goldfish' && (g.body.fineness > 2.05 || g.fins.caudal.type !== 'fantail')) errors.push('Goldfish body or tail is not the reference fantail form');
   if (g.head.special === 'horns') errors.push('Detached cone ornament was not removed');
+  /* mouth law audit: the interior cavity is a pocket inside the head (never a tunnel), ≤ 0.35 head length deep; teeth only on the jaw margins */
+  { const bm = fish.bm, fr = {}, s = {}; let out = 0, deepest = 0;
+    const inBody = (x, y, z, slack) => { const u = clamp((bm.headX - x) / L, .003, .999); bm.frame(u, fr); bm.section(u, s); const ly = (x - fr.px) * fr.nx + (y - fr.py) * fr.ny; return ly > -s.dDn * slack && ly < s.dUp * slack && Math.abs(z) <= bm.halfWidthAtY(s, clamp(ly, -s.dDn * .99, s.dUp * .99)) * slack + 1e-6; };
+    for (const m of fish.group.children) { const ab = m.geometry.getAttribute('aBody'); if (!ab || m.material !== fish.materials.jaw || ab.getZ(0) !== 1 || bm.ventralMouth || bm.oralDisc) continue; const P = m.geometry.getAttribute('position');
+      for (let i = 0; i < P.count; i++) { if (!inBody(P.getX(i), P.getY(i), P.getZ(i), 1.02)) out++; deepest = Math.max(deepest, (bm.headX - P.getX(i)) / L); } }
+    if (out) errors.push('Mouth cavity breaks out of the head'); if (deepest > bm.mcU + LAW.CAVITY_MAX * bm.h + 1e-6) errors.push('Mouth cavity deeper than 0.35 head length');
+    if (fish.parts.teeth) { const M = new THREE.Matrix4(), P = new THREE.Vector3(); for (let i = 0; i < fish.parts.teeth.count; i++) { fish.parts.teeth.getMatrixAt(i, M); P.setFromMatrixPosition(M); const u = (bm.headX - P.x) / L; if (u < bm.jawStartU - .01 || u > bm.mcU + 1e-6 || !inBody(P.x, P.y, P.z, 1.05)) { errors.push('Teeth outside the jaw margins'); break; } } } }
   const budget = fish.info.quality === 'lod' ? 2500 : 40000;
   if (fish.info.tris > budget) errors.push('Triangle budget exceeded');
   const un = violations(g); if (un.length) errors.push(un.length + ' unrepaired constraints');

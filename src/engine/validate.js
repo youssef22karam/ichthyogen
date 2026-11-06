@@ -3,8 +3,9 @@
    examined with the engine's analytic BodyModel — NO mesh is built before both stages pass. */
 import { AX_KEYS, DISC_KEYS, PALETTES, envelope, CLADES, SIZE_BANDS } from './clades.js';
 import { traitsToParams } from './mapping.js';
+import { assertLaws, finLaw, EYE_PROTRUSION_MAX, CAVITY_MAX } from './laws.js';
 
-export const INVARIANTS = ['symmetry', 'eyes', 'appendages', 'fins', 'mouth_gills', 'profile', 'colour', 'envelope'];
+export const INVARIANTS = ['symmetry', 'eyes', 'appendages', 'fins', 'mouth_gills', 'profile', 'colour', 'envelope', 'tail', 'plan'];
 export const EYE_BAND = [.03, .15];                 /* eye diameter / head length */
 const STD_FINS = new Set(['dorsal', 'dorsal2', 'dorsal3', 'anal', 'pectoral', 'pelvic', 'caudal', 'adipose', 'finlets']);
 const FIN_CAP = { dorsal: 1.15, dorsal2: .6, dorsal3: .6, anal: .7, pectoral: 1.9, pelvic: .6, caudal: .75 };   /* height / max body depth, caudal: len/L */
@@ -81,6 +82,15 @@ export function checkEngine(t, g, FG) {
   const F = [], fail = (inv, msg) => F.push({ inv, msg });
   const bm = new FG.BodyModel(g), lm = bm.lm, bp = bm.bp, L = bm.L, maxD = bp.maxD, f = g.fins, fam = bm.a.family, flatBody = fam === 'ray' || fam === 'benthicShark';
   const clade = CLADES[t.clade];
+  /* ── global anatomy laws (laws.js): every rule is a function of plan / niche / swim / depth axes ── */
+  const ax = FG.axesOf(g), whip = ax.plan.flat >= 1, FL = finLaw(ax);
+  for (const x of assertLaws(g, ax, lm, FG.metrics)) F.push(x);
+  const protrusion = (.8 - .53 + .14) / 2;                                   /* exposed dome / diameter from the eye construction */
+  if (protrusion > EYE_PROTRUSION_MAX) fail('eyes', 'eye protrudes more than a third of its diameter');
+  if (!(bm.hingeU >= lm.mouthCorner - EPS) || bm.hingeU > g.head.lengthFrac * g.head.gillStart + EPS) fail('mouth_gills', 'jaw hinge not between mouth corner and gill opening');
+  if (bm.hingeU + EPS < Math.min(lm.eye, g.head.lengthFrac * g.head.gillStart - .006)) fail('mouth_gills', 'jaw hinge in front of the eye line');
+  if (Math.min(g.mouth.cavityDepth, CAVITY_MAX) > CAVITY_MAX + EPS) fail('mouth_gills', 'cavity deeper than 0.35 head length');
+  if (whip) { if (bm.a.gills !== 'ventral') fail('plan', 'flattened plan gill openings not on the bottom surface'); if (!bm.ventralMouth) fail('plan', 'flattened plan mouth not on the bottom surface'); }
   /* ── eyes ── */
   if (g.head.eyeSide !== t.eyeSide) fail('symmetry', 'engine eye side differs from genome');
   if (g.head.eyeSize < EYE_BAND[0] - EPS || g.head.eyeSize > EYE_BAND[1] + EPS) fail('eyes', `engine eye size ${g.head.eyeSize.toFixed(3)} outside 3–15% of head`);
@@ -99,6 +109,7 @@ export function checkEngine(t, g, FG) {
     if (uu - bm.eyeR / L < .004 || uu + bm.eyeR / L > lm.operculum * .98) fail('eyes', 'eye extends off the head');
     if (bm.eyeR * 2 * .73 > (s.dUp + s.dDn) * .6) fail('eyes', 'eye too large for local head depth');
     if (!flatBody) { const o = {}; insideSection(bm, c.x, c.y, c.z, uu, o); if (o.ly + bm.eyeR * .85 > o.dUp * .97 || o.ly - bm.eyeR * .85 < -o.dDn * .97) fail('eyes', 'eye breaks the head outline (not embedded)'); }
+    else { const o = {}; insideSection(bm, surf.x, surf.y, surf.z, uu, o); if (!(o.ly > 0)) fail('plan', 'flattened plan eye not on the top surface'); }
     if (Math.abs(surf.z) < 1e-9 && !flatBody) fail('eyes', 'eye on the midline');
   });
   if (eyes.length !== 2) fail('eyes', 'not exactly two eyes');
@@ -125,8 +136,8 @@ export function checkEngine(t, g, FG) {
   if (Math.abs(f.pectoral.v) > .75) fail('appendages', 'pectoral off the flank');
   if (f.pelvic.present && lm.pelvicBase < lm.pectoralBase - 1e-6) fail('appendages', 'pelvic fin in front of the pectoral');
   if (f.pelvic.present && lm.pelvicBase > lm.analOrigin + .05 && f.anal.present) fail('appendages', 'pelvic behind the anal origin');
-  if (f.caudal.present !== !!t.caudal) fail('fins', 'engine changed caudal presence');
-  if ((f.caudal.present || !(t.curl > 0)) && (!f.caudal.present || bp.depth(.999) <= 0 || lm.caudalBase !== 1)) fail('appendages', 'caudal fin not at the tail tip');
+  if (f.caudal.present !== !!t.caudal && !(whip && !f.caudal.present)) fail('fins', 'engine changed caudal presence');
+  if (!whip && (f.caudal.present || !(t.curl > 0)) && (!f.caudal.present || bp.depth(.999) <= 0 || lm.caudalBase !== 1)) fail('appendages', 'caudal fin not at the tail tip');
   if (g.head.barbels > 8 || (g.head.barbels && (g.head.barbelLen > .8 || lm.mouthCorner >= lm.operculum))) fail('appendages', 'barbels not on the head');
   if (g.head.special === 'esca' && !(g.head.specialLen <= .35)) fail('appendages', 'lure detached from the head');
   if (!['none', 'esca', 'hammer'].includes(g.head.special)) fail('appendages', 'unexpected head appendage ' + g.head.special);
@@ -138,7 +149,7 @@ export function checkEngine(t, g, FG) {
   if (f.caudal.len > FIN_CAP.caudal || f.caudal.len < .03) fail('fins', 'caudal size outside family limit');
   const fr2 = FG.metrics(g).finAreaFractions;
   for (const k in AREA_CAP) if (fr2[k] > AREA_CAP[k]) fail('fins', `${k} fin area ${fr2[k]} exceeds ${AREA_CAP[k]} of body area`);
-  if (f.adipose.present || f.finlets.count) fail('fins', 'non-standard fin present');
+  if ((f.adipose.present && !FL.accessoryBand) || f.finlets.count) fail('fins', 'non-standard fin present');
   /* ── mouth, jaw, gills ── */
   if (lm.mouthCorner < .01 || lm.mouthCorner > lm.operculum * .98) fail('mouth_gills', 'mouth corner not within the head');
   if (bm.jawStartU >= lm.mouthCorner) fail('mouth_gills', 'jaw not connected to the mouth');

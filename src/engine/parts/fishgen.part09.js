@@ -129,7 +129,10 @@ class BodyModel {
   constructor(g) {
     this.g = g; this.a = anatomyProfile(g); const b = g.body; this.L = b.length; this.bp = bodyProfile(g); this.maxD = this.bp.maxD * this.L; this.h = g.head.lengthFrac; this.lm = landmarks(g);
     this.billStart = ['bill', 'sword'].includes(g.head.special) ? -g.head.specialLen : null;
-    this.isManta = cladePath(g.meta.clade).some(node => node.id === 'manta');
+    /* global anatomy laws: everything below that shapes eyes, mouth, fins, tail and the flattened plan reads these axes only */
+    this.ax = LAW.axesOf(g, this.a, NICHES[g.meta.niche], HABITATS[g.meta.habitat]);
+    this.law = { eye: LAW.eyeLaw(this.ax), mouth: LAW.mouthLaw(this.ax), fin: LAW.finLaw(this.ax), tail: LAW.tailLaw(this.ax), flat: LAW.flatLaw(this.ax, g) };
+    this.isManta = false;
     const NS = 240, pts = [], post = b.posture * Math.PI / 180, curl = b.curl; let x = 0, y = 0;
     for (let i = 0; i <= NS; i++) { const u = i / NS, phi = post * sstep(0.08, 0.28, u) + curl * TAU * 1.15 * Math.pow(Math.max(0, (u - 0.68) / 0.32), 1.6); pts.push({ x, y, phi }); x -= Math.cos(phi) * this.L / NS; y -= Math.sin(phi) * this.L / NS; }
     let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity; for (const p of pts) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); }
@@ -148,7 +151,8 @@ class BodyModel {
     this.spine = pts; this.headX = pts[0].x; this.tailX = pts[NS].x;
     const mt = MOUTH_LINE[g.mouth.type] || MOUTH_LINE.terminal; this.tipF = mt[0]; this.cornerF = mt[1];
     this.mcU = this.lm.mouthCorner;
-    this.oralDisc = this.a.family === 'jawless' || ['suction', 'tube'].includes(g.mouth.type);
+    this.oralDisc = this.law.mouth.construction === 'sucker' || this.law.mouth.construction === 'tube';
+    this.ventralMouth = this.law.mouth.construction === 'ventral';
     const under = ['inferior', 'subterminal', 'suction'].includes(g.mouth.type);
     this.jawStartU = under ? this.h * .16 : .003;
     this.jawStartU = Math.min(this.jawStartU, this.mcU * .45);
@@ -157,6 +161,9 @@ class BodyModel {
     /* eyeSize = visible eye diameter as a fraction of head length; the ball is recessed so only ~0.73 of its radius shows */
     this.eyeR = g.head.eyeSize * this.h * this.L * 0.69;
     this.eyeY = g.head.eyeV * this.bp.depth(this.lm.eye) * this.L * b.dorsalFrac * 0.7;
+    /* jaw articulation: behind the mouth corner and never in front of the eye line, always ahead of the gill opening */
+    this.hingeU = clamp(Math.max(this.mcU + .004, this.lm.eye), this.mcU, Math.max(this.mcU, this.h * g.head.gillStart - .006));
+    if (this.law.flat) { const sp = this.L * (this.a.family === 'ray' ? clamp(g.fins.pectoral.len * .47, .58, 1.23) : .42); this.discMargin = sp * this.law.flat.marginFrac; }
     this._fr = {}; this._s = {};
   }
   frame(u, out) {
@@ -194,10 +201,11 @@ class BodyModel {
     if (this.a.family === 'ray' || this.a.family === 'benthicShark') {
       const ray = this.a.family === 'ray', peak = ray ? b.peakU : .37, end = ray ? .76 : .68;
       const span = ray ? L * clamp(g.fins.pectoral.len * .47, .58, 1.23) : L * .42;
-      const front = ray ? (this.isManta ? .12 : .015) : .09;
-      const taper = u < peak ? front + (1 - front) * Math.pow(Math.sin(Math.PI * .5 * clamp(u / peak, 0, 1)), .85)
+      /* flattened plan: disc outline (rounded ↔ angular) and the share left to the ray-supported margin fin are plan parameters */
+      const fl = this.law.flat, front = ray ? fl.discFront : .09;
+      const taper = u < peak ? front + (1 - front) * Math.pow(Math.sin(Math.PI * .5 * clamp(u / peak, 0, 1)), fl.discPow)
         : Math.pow(1 - sstep(peak, end, u), .82);
-      s.w = Math.max(s.coreW, span * taper);
+      s.w = Math.max(s.coreW, span * (1 - fl.marginFrac * .8) * taper);
     }
     return s;
   }

@@ -129,6 +129,13 @@ RULE('niche_identity', 'Ecological niche is supported by the selected evolutiona
 RULE('surface_ornaments', 'No detached conical head ornaments; brow anatomy is sculpted into the skin', (g, lm, log) => {
   if (g.head.special === 'horns') setLog(g, log, 'surface_ornaments', 'head.special', 'none');
 });
+RULE('anatomy_laws', 'Global anatomy laws: eyes, mouth, fins, tail and flattened plan derived from plan / niche / swim / depth axes', (g, lm, log) => {
+  const a = anatomyProfile(g), ax = LAW.axesOf(g, a, NICHES[g.meta.niche], HABITATS[g.meta.habitat]);
+  LAW.repairLaws(g, ax, lm, log, { clampLog, setLog, bodyProfile, headDepth, metrics, landmarks, a });
+});
+/** Axes of a genome (plan / niche / swim / depth) — the only inputs the global anatomy laws may read. */
+function axesOf(g) { return LAW.axesOf(g, anatomyProfile(g), NICHES[g.meta.niche], HABITATS[g.meta.habitat]); }
+FG.axesOf = axesOf; FG.LAW = LAW;
 FG.RULES = RULES;
 /** Run all rules to a fixed point. Repairs are appended to g.meta.repairs. */
 function repair(g) {

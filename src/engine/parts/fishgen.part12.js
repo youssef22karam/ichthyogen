@@ -33,7 +33,7 @@ void main(){ vec3 p = position; vec3 n = normal; float ph = phaseOf();
 #endif
   applyWave(p, n, ph); mat4 mm = modelM(); vec4 wp = mm*vec4(p,1.0); vWP = wp.xyz; vLP = p; vN = normalize(mat3(mm)*n); vBody = aBody; vCirc=vec2(cos(aBody.y*6.2831853),sin(aBody.y*6.2831853)); gl_Position = projectionMatrix*viewMatrix*wp; }`;
 const FS_BODY = GLSL_COMMON_FS + GLSL_PIGMENT + /* glsl */`
-uniform float uLen,uScaleSize,uIrid,uGloss,uPhoto,uTrans,uHeadU,uPreU,uMouthU,uLateral,uElectric,uDetail,uMouthStart,uMouthTipF,uMouthCornerF,uManta,uJawAngle;
+uniform float uLen,uScaleSize,uIrid,uGloss,uPhoto,uTrans,uHeadU,uPreU,uMouthU,uLateral,uElectric,uDetail,uMouthStart,uMouthTipF,uMouthCornerF,uManta,uJawAngle,uJawOpenMax,uGape;
 uniform float uSilver,uLips,uEyeU,uEyeVert,uEyeRU,uEyeRV,uNostrils,uSlits;
 uniform int uScale; varying vec3 vN,vWP,vLP; varying vec4 vBody; varying vec2 vCirc;
 float gCirc = 1.0;   /* circuli visibility, killed when scales fall under a pixel */
@@ -105,6 +105,16 @@ void main(){
   vec3 N=normalize(vN); if(!gl_FrontFacing) N=-N; vec3 V=normalize(cameraPosition-vWP);
   vec3 col=skinPigment(u,ang); float tissue=vBody.z;
   float head=1.0-smoothstep(uHeadU*.5,uHeadU*1.08,u);
+  /* mouth law: the skin opens only as far as the jaw drops; what shows through is the capped cavity (tissue tag 1), never the far side */
+  bool cav=tissue>.9&&tissue<1.1;
+  if(cav){ col=vec3(.34,.12,.11)*(.5+.5*fbm(vec2(u*40.0,ang*20.0)+uSeed)); }
+#ifndef JAW
+  if(uManta<.5 && tissue<.5 && uJawOpenMax>.001 && u>=uMouthStart && u<=uMouthU*.92){
+    float k=clamp(uJawAngle/uJawOpenMax,0.0,1.0);
+    if(k>.04){ float t=smoothstep(uMouthStart,uMouthU,u); float level=mix(uMouthTipF,uMouthCornerF,t)-.025*sin(3.14159265*t);
+      float m0=max(uMouthStart,.006); float tt=clamp((u-m0)/max(1e-6,uMouthU*.92-m0),0.0,1.0); float ap=(.08+.3*uGape)*pow(max(0.0,sin(3.14159265*tt)),.6);
+      if(abs(vert-level) < ap*k) discard; } }
+#endif
 
   /* screen-space surface frame, reused by every bump layer */
   vec3 ddx=dFdx(vWP), ddy=dFdy(vWP), r1=cross(ddy,N), r2=cross(N,ddx); float det=dot(ddx,r1);
@@ -188,6 +198,7 @@ void main(){
     c+=uGlow*dotp*step(uHeadU,u)*step(u,.99)*( .85+.15*sin(uTime*2.5+floor(pu)))*1.7;
   }
   if(uElectric>.5) c+=vec3(.2,.35,.65)*uElectric*pow(max(0.0,sin(uTime*5.0+u*16.0)),24.0)*smoothstep(.3,.8,u)*.14;
+  if(cav) c=mix(c,col*.35,.75);
   c=mix(c,uFogCol,fogAmt(vWP)); gl_FragColor=vec4(c,mix(1.0,.86,uTrans));
 }`;
 const VS_FIN = GLSL_SWIM + /* glsl */`
@@ -205,6 +216,7 @@ const FS_FIN = GLSL_COMMON_FS + GLSL_PIGMENT + /* glsl */`
 uniform vec3 uFinCol; uniform float uIrid,uGloss; varying vec3 vN, vWP; varying vec4 vFin, vFin2, vSkin; varying vec2 vCirc;
 void main(){ float rayT = vFin.x, lenT = vFin.y, op = vFin2.x, memb = vFin2.y, sf = vFin2.z, R = vFin2.w;
   float rl = abs(fract(rayT*(R-1.0)+0.5)-0.5); float isSpine = step(rayT, sf - 0.001); float rayW = mix(0.08, 0.16, isSpine)*(1.0-0.5*lenT); float ray = 1.0 - smoothstep(rayW, rayW+0.08, rl);
+  if(vSkin.z<.5 && lenT > 1.0-.075*(4.0*rl*rl)) discard;                       /* fin law: trailing edge scalloped between ray tips */
   float branch=1.0-smoothstep(.055,.12,abs(fract(rayT*(R-1.0)*2.0+.5)-.5));
   ray=mix(ray,max(ray*.55,branch*.65),smoothstep(.55,.86,lenT)*(1.0-isSpine));
   if(lenT > memb && ray < .55 && vSkin.z<.5) discard;
@@ -223,7 +235,7 @@ void main(){ float rayT = vFin.x, lenT = vFin.y, op = vFin2.x, memb = vFin2.y, s
   float a=mix(max(.22,op*(1.0-.28*lenT)+ray*.08),1.0,root);
   if(vSkin.z>.5) a=1.0;
   vec3 N=normalize(vN); if(!gl_FrontFacing) N=-N;
-  vec3 c=wetLight(col,N,vWP,uGloss*.85,(1.0-vSkin.z)*(1.0-root)*.6);
+  vec3 c=wetLight(col,N,vWP,uGloss*.38,(1.0-vSkin.z)*(1.0-root)*.6);                 /* matte / satin membrane */
   c+=col*uLightCol*pow(max(0.0,dot(-N,normalize(uLightDir))),2.0)*(1.0-vSkin.z)*(1.0-root)*.15;
   float fog=fogAmt(vWP); c=mix(c,uFogCol,fog); gl_FragColor=vec4(c,a);
 }`;
@@ -240,7 +252,7 @@ void main(){ vec3 p = position; vec3 n = normal; vLN = normalize(normal);
   vLV = normalize(vec3(dot(m3[0],wv), dot(m3[1],wv), dot(m3[2],wv)));   /* view dir back in model space */
   gl_Position = projectionMatrix*viewMatrix*wp; }`;
 const FS_EYE = GLSL_COMMON_FS + /* glsl */`
-uniform vec3 uAxis, uEyeCol; uniform vec2 uSacc; uniform float uPupil,uCartilage,uSeed,uRay,uGloss;
+uniform vec3 uAxis, uEyeCol; uniform vec2 uSacc; uniform float uPupil,uCartilage,uSeed,uRay,uGloss,uPupilShape;
 varying vec3 vN, vWP, vLN, vLV;
 void main(){
   vec3 n = normalize(vLN), ax = normalize(uAxis), lv = normalize(vLV);
@@ -260,8 +272,7 @@ void main(){
 
   float pupilR = .30 + uPupil*.05, irisR = .74, scleraR = .90;
   /* pupil outline: round, vertical slit (sharks), or an operculated crescent (rays) */
-  float pd = uCartilage>.5 ? length(vec2(pc.x/.52, pc.y)) : r;
-  if(uRay>.5) pd = max(pd, (pc.y+ .22)/max(1e-3,pupilR));
+  float pd = uPupilShape>1.5 ? length(vec2(pc.x, pc.y/.5)) : uPupilShape>.5 ? length(vec2(pc.x/.5, pc.y)) : r;
   vec3 col; float irisQ = 0.0, isIris = 0.0;
   if(t <= -0.05){ col = uEyeCol*.10 + vec3(.005); }
   else if(pd < pupilR){
