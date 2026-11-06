@@ -40,7 +40,22 @@ export function eyeLaw(ax) {
   else { band = [.06, .14]; regime = 'normal'; }
   const pupil = ax.lightless ? 'round' : (has(ax, 'ambusher', 'lurer') || ax.nocturnal) && ax.light >= .3 ? 'vertical' : has(ax, 'flatBenthic', 'bottomDweller') && ax.light >= .5 ? 'horizontal' : 'round';
   const placement = ax.plan.flat > 0 ? 'dorsal' : ax.plan.sideFlat ? 'oneSide' : ax.plan.headExpanded ? 'lateralExtremity' : 'lateral';
-  return { band, regime, vestigial: regime === 'vestigial', pupil, pupilId: pupil === 'vertical' ? 1 : pupil === 'horizontal' ? 2 : 0, placement, count: 2 };
+  /* covers are plan/niche features, present or absent cleanly: a clear adipose window at the fast open-water end, a nictitating lower lid on the cartilaginous (non-disc) plan */
+  const adipose = !ax.lightless && !ax.plan.cartilaginous && regime === 'reduced' && ax.light >= .8;
+  const nictitating = !ax.lightless && ax.plan.cartilaginous && ax.plan.flat < 1;
+  /* iris palette set by niche + depth: metallic gold / copper / olive / dark */
+  const irisSet = ax.lightless || ax.light < .15 ? ['dark'] : ax.dark ? ['dark', 'copper'] : has(ax, 'ambusher', 'nocturnal', 'lurer') ? ['copper', 'olive'] : regime === 'reduced' ? ['gold'] : ['gold', 'copper', 'olive'];
+  const bottomOriented = ax.plan.flat > 0 || has(ax, 'bottomDweller', 'sifter', 'flatBenthic', 'scavenger', 'deepSea', 'crevice');
+  const forwardMin = has(ax, 'ambusher', 'lurer') ? .3 : 0;
+  return { band, regime, vestigial: regime === 'vestigial', pupil, pupilId: pupil === 'vertical' ? 1 : pupil === 'horizontal' ? 2 : 0, placement, count: 2, covers: { adipose, nictitating }, irisSet, bottomOriented, forwardMin };
+}
+/* the eyeball is a sphere seated in an orbit: its centre lies EYE_SEAT radii below the skin, so the dome protrudes (1 - EYE_SEAT) / 2 diameters */
+export const EYE_SEAT = .36;
+export const EYE_PROTRUSION = (1 - EYE_SEAT) / 2;
+/** effective dorsal eye station (fraction of local half-depth): lateral default, shifted dorsal for bottom-oriented plans */
+export function eyeStation(g, E, ax) {
+  if (ax.plan.flat > 0 || ax.plan.sideFlat || ax.plan.headExpanded) return g.head.eyeV;
+  return clamp(g.head.eyeV, -.12, .42) + (E.bottomOriented ? .14 : 0);
 }
 
 /* ───────────────────────── 1. MOUTHS ───────────────────────── */
@@ -65,7 +80,11 @@ export function mouthLaw(ax) {
     : has(ax, 'filterFeeder', 'planktivore') ? 'villiform' : has(ax, 'ambusher') ? (ax.dark ? 'fang' : 'needle')
     : has(ax, 'predator') ? (ax.plan.solid ? 'triangular' : 'needle') : has(ax, 'armored', 'sifter', 'scavenger', 'crevice') ? 'molar' : 'villiform';
   const teethClass = teethForm === 'none' ? 'absent' : teethForm === 'beak' ? 'plate' : ['molar'].includes(teethForm) ? 'crushing' : ['villiform', 'rasp'].includes(teethForm) ? 'comb' : 'grasping';
-  return { construction, orientation, type, gape, teethForm, teethClass, cavityMax: CAVITY_MAX, discMax: DISC_DEPTH_MAX, tubeMax: TUBE_MAX, allowedTypes: typesFor(type) };
+  /* protrusion mechanism for picking niches; cheek (adductor) mass scales with bite niche */
+  const picking = construction === 'jawed' && has(ax, 'planktivore', 'cleaner', 'sifter', 'suction', 'maneuverer');
+  const cheek = has(ax, 'ambusher', 'lurer') ? 1 : has(ax, 'armored', 'scavenger', 'crevice') ? .85 : has(ax, 'predator') ? .65 : has(ax, 'planktivore', 'cleaner', 'filterFeeder') ? .08 : .35;
+  const teethRows = teethClass === 'comb' || teethClass === 'crushing' ? 2 : 1;
+  return { picking, cheek, teethRows, construction, orientation, type, gape, teethForm, teethClass, cavityMax: CAVITY_MAX, discMax: DISC_DEPTH_MAX, tubeMax: TUBE_MAX, allowedTypes: typesFor(type) };
 }
 /* mouth types that satisfy the same orientation/construction (so authored mouths need not be rewritten when equivalent) */
 function typesFor(t) { return t === 'terminal' ? ['terminal', 'protrusible'] : t === 'inferior' ? ['inferior'] : t === 'subterminal' ? ['subterminal', 'inferior'] : [t]; }
@@ -250,3 +269,40 @@ export function assertLaws(g, ax, lm, metricsFn) {
   if (ax.plan.flat >= 1) { if (!g.head.spiracles) fail('plan', 'flattened plan without top-surface spiracles'); if (g.head.gillSlits !== 5) fail('plan', 'flattened plan without 5 gill pairs'); if (f.anal.present) fail('plan', 'flattened plan with an anal fin'); }
   return F;
 }
+
+/* ───────────────────────── 6. BARBELS & FILAMENTS ───────────────────────── */
+export const APPENDAGE_CAP = { barbelHead: 1.0, barbelBody: .35, chinHead: .5, lureBody: .6, whipBody: .6, pairsMax: 4 };
+const OPEN_WATER = ['fastSwimmer', 'schooler', 'glider', 'surfaceFeeder', 'filterFeeder', 'planktivore', 'verticalMigrator', 'cleaner'];
+const BARBEL_ORDER = { down: ['corner', 'chinPair', 'nasal', 'outer'], ambush: ['nasal', 'corner', 'chinPair', 'outer'], other: ['corner', 'nasal', 'chinPair', 'outer'] };
+const BARBEL_LEN = { corner: 1, chinPair: .8, nasal: .65, outer: .7, chin: 1 };
+/** Which barbel stations a plan + niche may carry. Bottom-oriented niches get barbels; open-water niches none. */
+export function barbelLaw(ax, M) {
+  const bottom = M.orientation === 'down' || has(ax, 'bottomDweller', 'sifter', 'flatBenthic', 'scavenger', 'deepSea', 'crevice', 'nocturnal');
+  const ambush = has(ax, 'ambusher', 'lurer');
+  const open = has(ax, ...OPEN_WATER) && !bottom;
+  const eligible = M.construction === 'jawed' && !open && (bottom || ambush) && ax.plan.flat < 1 && !ax.plan.tubular && !ax.plan.jawless;
+  const maxPairs = !eligible ? 0 : ax.plan.cartilaginous ? 1 : ax.plan.elongated ? 2 : ax.plan.perch ? 1 : bottom ? 4 : 2;
+  return { eligible, bottom, ambush, maxPairs, chinAllowed: eligible && (bottom || ax.dark), order: M.orientation === 'down' ? BARBEL_ORDER.down : ambush ? BARBEL_ORDER.ambush : BARBEL_ORDER.other };
+}
+/** Effective, capped barbel set for a genome: [{ kind, paired, lenHead }] with lenHead = length / head length. Concentrated at short lengths. */
+export function barbelPlan(g, ax, M) {
+  const B = barbelLaw(ax, M), n = g.head.barbels | 0, out = [];
+  if (!B.eligible || n <= 0) return { law: B, items: out, pairs: 0, chin: false };
+  const raw = clamp(g.head.barbelLen, .05, 2), base = Math.min(APPENDAGE_CAP.barbelHead * .98, .8 * (1 - Math.exp(-1.35 * raw)));
+  const pairs = Math.min(Math.floor(n / 2), B.maxPairs, APPENDAGE_CAP.pairsMax);
+  for (let i = 0; i < pairs; i++) out.push({ kind: B.order[i], paired: true, lenHead: base * BARBEL_LEN[B.order[i]] });
+  const chin = (n % 2 === 1) && B.chinAllowed;
+  if (chin) out.push({ kind: 'chin', paired: false, lenHead: Math.min(APPENDAGE_CAP.chinHead * .98, base * .5) });
+  return { law: B, items: out, pairs, chin };
+}
+/** Absolute strand length (metres) after the hard caps: ≤ 1.0 × head length, ≤ 0.35 × body length; chin ≤ 0.5 × head length. */
+export function barbelLength(item, headLen, L) {
+  const cap = Math.min(item.kind === 'chin' ? APPENDAGE_CAP.chinHead * headLen : APPENDAGE_CAP.barbelHead * headLen, APPENDAGE_CAP.barbelBody * L);
+  return Math.min(item.lenHead * headLen, cap);
+}
+/** Head filament (lure) only in ambush / deep niches; total length (stalk + esca) ≤ 0.6 × body length, typically far less. */
+export function lureLaw(g, ax) {
+  const allowed = g.head.special === 'esca' && (has(ax, 'ambusher', 'lurer') || ax.dark);
+  return { allowed, lenBody: allowed ? Math.min(APPENDAGE_CAP.lureBody, .5 * clamp(g.head.specialLen, .03, 1.5)) : 0 };
+}
+export function whipLen(g) { return Math.min(APPENDAGE_CAP.whipBody, clamp(g.head.specialLen, .03, 1.5) * .8); }

@@ -1,107 +1,3 @@
-// @@PART js/app.part08.js (8/19) lines 1262-1557 of the original module script -- stripped by build.mjs
-function nameFish(g, rng) {
-  if (g.meta.proc && g.meta.proc.name) { g.meta.name = g.meta.proc.name; g.meta.sci = g.meta.proc.sci + (g.meta.edited ? ' (edited)' : ''); return; }
-  if (g.meta.species) {
-    const sp = SPECIES.find(s => s.id === g.meta.species);
-    if (sp) {
-      const ad = g.meta.adapted && HABITATS[g.meta.adapted.to], adj = ad ? (HAB_ADJ[ad.id] || ad.n.toLowerCase()) : '';
-      g.meta.name = ad ? adj.charAt(0).toUpperCase() + adj.slice(1) + (g.meta.speculative ? '-inspired ' : '-adapted ') + sp.n.toLowerCase() : sp.n;
-      g.meta.sci = sp.sci + (g.meta.speculative ? ' / speculative concept, not a real population' : ad ? ' (authored habitat variant)' : '');
-      return;
-    }
-  }
-  const cl = CLADES[g.meta.clade]; const base = singular(cl.n).toLowerCase();
-  const adj = PATTERN_ADJ[g.skin.pattern] || hueName(g.skin.base);
-  g.meta.name = `${g.meta.novel ? 'Concept' : adj} ${HAB_ADJ[g.meta.habitat] || ''} ${base}`.replace(/\s+/g, ' ').trim();
-  const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
-  g.meta.sci = cap(rng.pick(SYL) + rng.pick(SYL) + rng.pick(GEN_END)) + ' ' + rng.pick(SYL) + rng.pick(SYL) + rng.pick(['us', 'a', 'um', 'ensis', 'oides']) + (g.meta.novel ? ' (generated concept)' : g.meta.fantasy ? ' (fict.)' : ' (gen.)');
-  if (g.meta.evolution && g.meta.evolution.step > 0) {
-    const source = SPECIES.find(card => card.id === g.meta.parentSpecies);
-    g.meta.name = `Evolved ${source ? source.n.toLowerCase() : base} / step ${g.meta.evolution.step}`;
-    if (source) g.meta.sci = source.sci + ' / generated evolutionary variant';
-  }
-}
-function finalize(g, rng) {
-  if (!CLADES[g.meta.clade]) g.meta.clade = 'teleost'; if (!HABITATS[g.meta.habitat]) g.meta.habitat = 'coralReef';
-  const tags = new Set(cladeTags(g.meta.clade)); let ni = NICHES[g.meta.niche], hab = HABITATS[g.meta.habitat];
-  if (ni) { ni.tags.forEach(t => tags.add(t)); ni.ff.forEach(f => tags.add(f)); }
-  if (g.skin.electric) tags.add('electric'); if (g.skin.inflate) tags.add('inflate');
-  g.meta.tags = [...tags]; g.meta.fantasy = !!(hab && hab.fantasy) || !!(ni && ni.fantasy) || tags.has('fantasy');
-  if (!g.meta.repairs) g.meta.repairs = [];
-  repair(g);
-  ni = NICHES[g.meta.niche]; hab = HABITATS[g.meta.habitat];
-  const resolvedTags = new Set(cladeTags(g.meta.clade)); if (ni) { ni.tags.forEach(t => resolvedTags.add(t)); ni.ff.forEach(t => resolvedTags.add(t)); }
-  if (g.skin.electric) resolvedTags.add('electric'); if (g.skin.inflate) resolvedTags.add('inflate');
-  g.meta.tags = [...resolvedTags]; g.meta.fantasy = !!hab.fantasy || !!(ni && ni.fantasy) || resolvedTags.has('fantasy');
-  g.meta.speculative = !!(g.meta.adapted && (!cladeAllowed(g.meta.clade, hab) || hab.fantasy));
-  if (g.meta.adapted) { g.meta.adapted.to = g.meta.habitat; g.meta.adapted.speculative = g.meta.speculative; }
-  if (!g.meta.surfaceSeed) g.meta.surfaceSeed = g.meta.seed;
-  g.meta.version = FG.version; nameFish(g, rng || new RNG(g.meta.seed + ':name'));
-  g.meta.sizeClass = sizeClass(g.body.length); g.meta.metrics = metrics(g); g.meta.landmarks = landmarks(g);
-  return g;
-}
-/**
- * Generate a validated genome.
- * @param {{seed?:string,habitat?:string,niche?:string,clade?:string,species?:string,overrides?:Object,noSpecies?:boolean}} opts
- */
-function generate(opts = {}) {
-  const seed = String(opts.seed != null && opts.seed !== '' ? opts.seed : Math.floor(Math.random() * 1e9).toString(36));
-  const rng = new RNG(`${seed}|${opts.habitat || ''}|${opts.niche || ''}|${opts.clade || ''}|${opts.species || ''}`);
-  let species = opts.species ? SPECIES.find(s => s.id === opts.species) : null;
-  let habId = opts.habitat && HABITATS[opts.habitat] ? opts.habitat : (species ? species.habitat : rng.pick(Object.keys(HABITATS).filter(h => !HABITATS[h].fantasy)));
-  let nicheId = opts.niche, cladeId = opts.clade;
-  if (species) { nicheId = opts.niche && NICHES[opts.niche] && cladeInNiche(species.clade, NICHES[opts.niche]) ? opts.niche : species.niche; cladeId = species.clade; }
-  const hab = HABITATS[habId];
-  if (!nicheId && cladeId && CLADES[cladeId]) {
-    const candidates = {};
-    for (const id in NICHES) if (cladeInNiche(cladeId, NICHES[id])) candidates[id] = hab.niches[id] || .08;
-    if (Object.keys(candidates).length) nicheId = rng.weighted(candidates);
-  }
-  if (!nicheId || !NICHES[nicheId]) {
-    const compatible = {};
-    for (const id in hab.niches) {
-      const niche = NICHES[id];
-      if (niche && Object.keys(niche.clades).some(clade => CLADES[clade] && cladeAllowed(clade, hab))) compatible[id] = hab.niches[id];
-    }
-    if (!Object.keys(compatible).length) throw new Error(`No viable niches in ${hab.n}`);
-    nicheId = rng.weighted(compatible);
-  }
-  const ni = NICHES[nicheId];
-  if (!cladeId || !CLADES[cladeId]) cladeId = pickClade(ni, hab, rng);
-  if (!species && !opts.noSpecies && rng.chance(0.35)) { const cands = SPECIES.filter(s => s.clade === cladeId && (s.habitat === habId || s.niche === nicheId)); if (cands.length) species = rng.pick(cands); }
-  const meta = { seed, surfaceSeed: seed, habitat: habId, niche: nicheId, clade: cladeId, species: species ? species.id : null };
-  const map = resolveTraitMap(meta);
-  const g = defaultGenome(); Object.assign(g.meta, meta);
-  sampleCorrelated(map, rng, g);
-  genPalette(g, rng, hab, ni, map);
-  if (species && habId !== species.habitat && !opts.noAdapt) adaptToHabitat(g, hab, species, rng, opts.niche);
-  if (opts.overrides) for (const p in opts.overrides) if (SCHEMA[p]) setP(g, p, opts.overrides[p]);
-  return finalize(g, rng);
-}
-/** Keep a reference species' body plan but adapt niche, colour, size and function-to-form to a different habitat. */
-function adaptToHabitat(g, hab, species, rng, preferredNiche) {
-  g.meta.adapted = { from: species.habitat, to: hab.id, speculative: !cladeAllowed(g.meta.clade, hab) || hab.fantasy };
-  const w = {}; for (const id in hab.niches) if (cladeInNiche(g.meta.clade, NICHES[id])) w[id] = hab.niches[id];
-  if (preferredNiche && NICHES[preferredNiche] && cladeInNiche(g.meta.clade, NICHES[preferredNiche])) g.meta.niche = preferredNiche;
-  else if (Object.keys(w).length) g.meta.niche = rng.weighted(w);
-  const ni = NICHES[g.meta.niche], ff = ni ? ni.ff : [];
-  const hr = rng.pick(hab.pal.h), targetH = rng.range(hr[0], hr[1]), sat = (hab.pal.s[0] + hab.pal.s[1]) / 2 * (ni ? ni.sat : 1);
-  for (const p of ['skin.base', 'skin.accent', 'skin.fin']) { const col = getP(g, p); const dh = ((targetH - col[0] + 540) % 360) - 180; col[0] = (col[0] + dh * .22 + 360) % 360; col[1] = lerp(col[1], clamp(sat, 0, 1), .2); }
-  if (hab.light < .15) { g.head.eyeSize = clamp(g.head.eyeSize * 1.25, .05, .55); g.skin.iridescence *= .4; g.skin.base[2] *= .65; if (hab.light < .05) g.skin.photophores = Math.max(g.skin.photophores, 12); }
-  if (ff.includes('maneuverer')) applyAdaptation(g, 'agility', .35, true);
-  if (ff.includes('fastSwimmer')) applyAdaptation(g, 'speed', .3, true);
-  if (ff.includes('crevice')) applyAdaptation(g, 'shelter', .4, true);
-  const pelagicBody = anatomyProfile(g).family === 'pelagic' || g.swim.mode === 'thunniform';
-  if ((ff.includes('camouflage') || ff.includes('ambusher')) && !pelagicBody) { if (g.skin.pattern === 'none') { g.skin.pattern = 'mottle'; g.skin.patternScale = Math.max(g.skin.patternScale, 1.4); } g.skin.patternStrength = clamp(Math.max(g.skin.patternStrength, .5), 0, .65); g.skin.iridescence = Math.min(g.skin.iridescence, .3); }
-  if (ff.includes('bottomDweller')) g.body.ventralFlat = Math.max(g.body.ventralFlat, .4);
-  if (['coralReef', 'rockyShore', 'mountainStream', 'cave', 'seagrass', 'blackwater'].includes(hab.id) && g.body.length > .5) g.body.length = Math.max(.35, g.body.length * .72);
-  if (hab.tags.includes('fresh') && !cladeReq(g.meta.clade).includes('fresh')) g.skin.iridescence *= .7;
-}
-/* ==================================================================
-   LINKED ADAPTATION MODULES: selection acts on whole functional units.
-   God Mode widens variation, never disables architecture or repair.
-   ================================================================== */
-const ADAPTATIONS = {
   speed: { label: 'Streamlining', desc: 'Slender trunk, narrower peduncle and higher-aspect thrust.', paths: { 'body.fineness': 1, 'body.tailTaper': .7, 'body.pedDepth': -.7, 'fins.caudal.aspect': .65, 'fins.caudal.span': .35, 'fins.dorsal.height': -.3, 'swim.envPow': .55 }, weight: 'fastSwimmer' },
   agility: { label: 'Maneuverability', desc: 'Deeper body and broader, more flexible steering fins.', paths: { 'body.fineness': -.7, 'body.width': -.25, 'fins.pectoral.len': .9, 'fins.pectoral.spread': .65, 'fins.pectoral.flex': .45, 'fins.caudal.aspect': -.45, 'swim.amp': -.2 }, weight: 'maneuverer' },
   feeding: { label: 'Prey Capture', desc: 'Head, gape and jaw proportions evolve together.', paths: { 'head.lengthFrac': .5, 'mouth.gape': .8, 'head.eyeForward': .3, 'head.cheek': .4, 'mouth.cavityDepth': .3 }, weight: 'predator' },
@@ -296,3 +192,69 @@ const CLADE_STOP = new Set(['fish', 'fishes', 'true', 'allies', 'root', 'finned'
 const CLADE_PHRASES = (() => { const m = new Map(); for (const id in CLADES) { if (id === 'fish') continue; const depth = cladePath(id).length; const n = CLADES[id].n.toLowerCase().replace(/\(.*?\)/g, ''); for (let part of n.split(/\s*(?:,|&|\/)\s*/)) { part = part.replace(/^true /, '').trim(); if (!part) continue; const cands = new Set([part, singular(part).toLowerCase()]); const last = part.split(/\s+/).pop(); cands.add(last); cands.add(singular(last).toLowerCase()); for (const ph of cands) { if (ph.length < 3 || CLADE_STOP.has(ph)) continue; const prev = m.get(ph); if (!prev || prev.depth > depth) m.set(ph, { id, depth }); } } } return [...m.entries()].map(([ph, v]) => [ph, v.id]).sort((a, b) => b[0].length - a[0].length); })();
 const COLOR_WORDS = { red: [0, .8, .42], crimson: [350, .85, .4], scarlet: [5, .9, .45], orange: [28, .9, .5], yellow: [52, .9, .55], gold: [45, .85, .5], golden: [45, .85, .5], green: [115, .5, .4], emerald: [140, .7, .4], olive: [80, .4, .3], teal: [172, .6, .4], cyan: [185, .8, .5], turquoise: [175, .7, .5], blue: [215, .7, .45], navy: [225, .6, .2], indigo: [245, .6, .35], purple: [275, .6, .4], violet: [270, .7, .5], lavender: [265, .5, .7], pink: [335, .7, .7], magenta: [310, .8, .5], rose: [340, .6, .6], brown: [30, .4, .3], tan: [35, .4, .6], sandy: [40, .35, .65], black: [220, .1, .06], white: [0, 0, .95], silver: [200, .08, .72], grey: [200, .05, .5], gray: [200, .05, .5], ivory: [45, .3, .9], copper: [22, .7, .45], bronze: [30, .5, .4] };
 function normText(prompt) { return ' ' + String(prompt || '').toLowerCase().replace(/[^a-z0-9\s\-]/g, ' ').replace(/\s+/g, ' ') + ' '; }
+// @@PART js/app.part09.js (9/19) lines 1558-1847 of the original module script -- stripped by build.mjs
+/** Fuzzy species lookup: full name, all significant words, or scientific name. */
+function findSpecies(text) {
+  const t = normText(text); let best = null, score = 0;
+  for (const s of SPECIES) {
+    const n = s.n.toLowerCase().replace(/[^a-z0-9\s\-]/g, ' '), sci = s.sci.toLowerCase(); let sc = 0;
+    if (t.includes(' ' + n + ' ') || t.includes(' ' + sci + ' ')) sc = 100 + n.length;
+    else { const words = n.split(/[\s\-]+/).filter(x => x.length > 3); if (words.length && words.every(x => t.includes(' ' + x))) sc = 50 + words.join('').length; else if (words.length > 1 && words.filter(x => t.includes(' ' + x)).length >= Math.ceil(words.length * .67)) sc = 20 + words.length; }
+    if (sc > score) { score = sc; best = s; }
+  }
+  return best;
+}
+function findHabitat(text) { const t = normText(text); for (const h in HAB_ALIASES) if (HAB_ALIASES[h].some(w => t.includes(w))) return h; return null; }
+function genomeFromText(prompt, seed, defaultHabitat) {
+  const t = normText(prompt);
+  const has = ws => ws.some(w => t.includes(w)); const opts = { overrides: {}, seed: seed != null ? seed : cyrb128(prompt)[0].toString(36) };
+  const best = findSpecies(prompt);
+  if (best) opts.species = best.id;
+  for (const [ph, id] of CLADE_PHRASES) if (t.includes(' ' + ph + ' ') || t.includes(' ' + ph + 's ') || t.includes(' ' + ph + 'es ')) { opts.clade = id; break; }
+  const habHit = findHabitat(prompt); if (habHit) opts.habitat = habHit; else if (defaultHabitat && HABITATS[defaultHabitat]) opts.habitat = defaultHabitat;
+  for (const n in NICHE_ALIASES) if (has(NICHE_ALIASES[n])) { opts.niche = n; break; }
+  const o = opts.overrides; const cols = Object.keys(COLOR_WORDS).filter(w => t.includes(' ' + w)).sort((a, b) => t.indexOf(' ' + a) - t.indexOf(' ' + b));
+  if (cols[0]) { o['skin.base'] = COLOR_WORDS[cols[0]].slice(); o['skin.fin'] = [COLOR_WORDS[cols[0]][0], COLOR_WORDS[cols[0]][1] * .7, Math.min(.9, COLOR_WORDS[cols[0]][2] + .1)]; }
+  if (cols[1]) o['skin.accent'] = COLOR_WORDS[cols[1]].slice();
+  if (has(['stripe'])) o['skin.pattern'] = 'stripes'; else if (has(['band', 'bar '])) o['skin.pattern'] = 'bars'; else if (has(['spot', 'dot', 'polka'])) o['skin.pattern'] = 'spots'; else if (has(['mottl', 'blotch'])) o['skin.pattern'] = 'mottle'; else if (has(['eyespot', 'ocell'])) o['skin.pattern'] = 'eyespot'; else if (has(['reticul', ' net', 'honeycomb'])) o['skin.pattern'] = 'reticulate'; else if (has(['saddle'])) o['skin.pattern'] = 'saddles'; else if (has(['plain', 'solid'])) o['skin.pattern'] = 'none';
+  if (o['skin.pattern'] && o['skin.pattern'] !== 'none') o['skin.patternStrength'] = .9;
+  if (has(['tiny', 'minute'])) o['body.length'] = .04; else if (has(['small', 'little'])) o['body.length'] = .1; else if (has(['huge', 'giant', 'enormous', 'massive', 'colossal'])) o['body.length'] = 3; else if (has(['large', 'big'])) o['body.length'] = 1.2;
+  if (has(['eel-like', 'eellike', 'snake', 'serpent', 'ribbon'])) { o['body.fineness'] = 11; o['swim.mode'] = 'anguilliform'; } else if (has(['long', 'slender', 'elongat', 'skinny', 'torpedo', 'streamlined'])) o['body.fineness'] = 6.5; else if (has(['deep-bodied', 'deep bodied', 'tall', 'disc', 'discus', 'pancake'])) o['body.fineness'] = 1.9; else if (has(['round', 'fat', 'chubby', 'plump', 'globular'])) { o['body.fineness'] = 2.6; o['body.width'] = .85; }
+  if (has(['flattened', 'depressed', 'flat '])) { o['body.width'] = 1.8; o['body.ventralFlat'] = 1; }
+  if (has(['compressed', 'laterally'])) o['body.width'] = .3;
+  if (has(['barbel', 'whisker'])) { o['head.barbels'] = 4; o['head.barbelLen'] = .6; }
+  if (has(['glow', 'biolum', 'lumin', 'light organ', 'photophore'])) o['skin.photophores'] = 30;
+  if (has(['sword'])) { o['head.special'] = 'sword'; o['head.specialLen'] = .32; } else if (has(['bill', 'spear'])) { o['head.special'] = 'bill'; o['head.specialLen'] = .22; } else if (has(['hammer'])) { o['head.special'] = 'hammer'; } else if (has(['horn', 'antler'])) { o['head.special'] = 'horns'; o['head.specialLen'] = .12; } else if (has(['lure', 'esca', 'fishing rod'])) { o['head.special'] = 'esca'; o['head.specialLen'] = .35; } else if (has(['saw'])) { o['head.special'] = 'rostrum'; o['head.specialLen'] = .28; }
+  if (has(['fang'])) { o['mouth.teeth'] = 'fang'; o['mouth.teethCount'] = 24; o['mouth.gape'] = .7; } else if (has(['needle teeth', 'needle-like'])) { o['mouth.teeth'] = 'needle'; o['mouth.teethCount'] = 40; } else if (has(['beak', 'parrot'])) { o['mouth.type'] = 'beak'; o['mouth.teeth'] = 'beak'; } else if (has(['toothless', 'no teeth'])) { o['mouth.teeth'] = 'none'; } else if (has(['big mouth', 'huge mouth', 'gaping', 'wide mouth', 'large mouth'])) o['mouth.gape'] = .85;
+  if (has(['sucker mouth', 'suction'])) o['mouth.type'] = 'suction'; else if (has(['upturned', 'superior mouth'])) o['mouth.type'] = 'superior'; else if (has(['underslung', 'inferior mouth', 'under the snout'])) o['mouth.type'] = 'inferior'; else if (has(['tube snout', 'tubular', 'pipette'])) o['mouth.type'] = 'tube';
+  if (has(['armor', 'armour', 'plated', 'bony plates'])) o['skin.scale'] = 'plates'; else if (has(['scaleless', 'naked', 'smooth skin'])) o['skin.scale'] = 'bare'; else if (has(['ganoid', 'diamond scale'])) o['skin.scale'] = 'ganoid';
+  if (has(['translucent', 'glass', 'transparent', 'see-through'])) o['skin.translucency'] = .75;
+  if (has(['iridescent', 'shimmer', 'metallic', 'shiny', 'holographic'])) o['skin.iridescence'] = 1;
+  if (has(['venomous spines', 'spiny dorsal', 'tall spines', 'quill'])) { o['fins.dorsal.shape'] = 'spines'; o['fins.dorsal.height'] = 1.1; o['fins.dorsal.spines'] = 13; }
+  if (has(['sail fin', 'sailfin', 'huge dorsal', 'tall dorsal', 'sail-like'])) { o['fins.dorsal.shape'] = 'sail'; o['fins.dorsal.height'] = 1.4; }
+  if (has(['veil', 'flowing fins', 'long fins', 'trailing'])) { o['fins.caudal.len'] = .5; o['fins.caudal.flex'] = .95; o['fins.dorsal.flex'] = .95; }
+  if (has(['lunate', 'crescent tail', 'sickle tail'])) o['fins.caudal.type'] = 'lunate'; else if (has(['forked tail'])) o['fins.caudal.type'] = 'forked'; else if (has(['round tail', 'rounded tail', 'paddle tail'])) o['fins.caudal.type'] = 'rounded'; else if (has(['whip tail', 'whip-like', 'filament'])) o['fins.caudal.type'] = 'filamentous';
+  if (has(['big eyes', 'huge eyes', 'large eyes', 'bug-eyed'])) o['head.eyeSize'] = .36; else if (has(['tiny eyes', 'small eyes', 'blind', 'eyeless'])) { o['head.eyeSize'] = .07; if (has(['blind', 'eyeless'])) o['head.eyeSide'] = 'none'; }
+  if (has(['wing', 'glide', 'flying'])) { o['fins.pectoral.shape'] = 'wing'; o['fins.pectoral.len'] = 2.4; }
+  if (has(['humped', 'hump', 'bulbous forehead', 'nuchal'])) o['body.hump'] = .8;
+  if (has(['electric', 'shock'])) o['skin.electric'] = true;
+  if (has(['puffer', 'inflat', 'balloon'])) o['skin.inflate'] = true;
+  if (has(['fantasy', 'fictional', 'mythic', 'alien'])) { if (!opts.habitat) opts.habitat = 'void'; }
+  return generate(opts);
+}
+/* ── pluggable LLM endpoint (returns JSON; schema-validated and rule-repaired, never trusted) ── */
+FG.llm = { endpoint: safeStore.get('fg_llm_endpoint') || '', key: safeStore.get('fg_llm_key') || '', model: safeStore.get('fg_llm_model') || '' };
+function schemaSummary() { const o = {}; for (const p in SCHEMA) { const e = SCHEMA[p]; o[p] = e.t === 's' ? e.opts.join('|') : e.t === 'b' ? 'bool' : e.t === 'hsl' ? '[h0-360,s0-1,l0-1]' : `${e.t === 'i' ? 'int' : 'num'} ${e.min}..${e.max}`; } return o; }
+function extractJSON(txt) { const s = txt.indexOf('{'), e = txt.lastIndexOf('}'); if (s < 0 || e < 0) throw new Error('No JSON object in LLM response'); return JSON.parse(txt.slice(s, e + 1)); }
+async function genomeFromLLM(prompt) {
+  if (!FG.llm.endpoint) throw new Error('No LLM endpoint configured (Text panel → endpoint). The offline parser is used otherwise.');
+  const body = { model: FG.llm.model || undefined, prompt, instruction: 'You design a fish. Return ONLY a JSON object: {"meta":{"habitat":ID,"niche":ID,"clade":ID},"overrides":{"<schema path>":value}}. Only use listed IDs and schema paths.', ids: { habitats: Object.keys(HABITATS), niches: Object.keys(NICHES), clades: Object.keys(CLADES) }, schema: schemaSummary() };
+  const headers = { 'Content-Type': 'application/json' }; if (FG.llm.key) headers.Authorization = 'Bearer ' + FG.llm.key;
+  const res = await fetch(FG.llm.endpoint, { method: 'POST', headers, body: JSON.stringify(body) });
+  if (!res.ok) throw new Error('LLM endpoint HTTP ' + res.status);
+  const json = extractJSON(await res.text());
+  const src = json.overrides && typeof json.overrides === 'object' ? json.overrides : null;
+  const meta = json.meta || {};
+  if (!src) { const { genome, issues } = validateGenome(json); genome.meta.seed = genome.meta.seed || 'llm'; genome.meta.repairs = issues.map(i => ({ rule: 'schema_validate', path: '-', from: '-', to: i })); return finalize(genome); }
+  const overrides = {}; const { genome: v, issues } = validateGenome({ ...Object.fromEntries([]), ...unflatten(src) });
+  for (const p in src) if (SCHEMA[p]) overrides[p] = getP(v, p);

@@ -1,59 +1,3 @@
-// @@PART js/app.part06.js (6/19) lines 814-1026 of the original module script -- stripped by build.mjs
-SPC('Northern snakehead', 'Channa argus', 'esociform', 'ambush', 'slowRiver', .5, 1, 70, .3, .25, 'mottle');
-SPC('Smallmouth bass', 'Micropterus dolomieu', 'bass', 'pursuitPredator', 'lake', .3, .5, 60, .35, .35, 'bars');
-SPC('European perch', 'Perca fluviatilis', 'percoid', 'pursuitPredator', 'lake', .2, .4, 75, .45, .35, 'bars');
-SPC('Zander', 'Sander lucioperca', 'percoid', 'pursuitPredator', 'lake', .5, .9, 60, .2, .4, 'bars');
-SPC('Black crappie', 'Pomoxis nigromaculatus', 'percoid', 'planktivore', 'lake', .2, .3, 100, .15, .5, 'mottle');
-SPC('Pumpkinseed', 'Lepomis gibbosus', 'percoid', 'pursuitPredator', 'lake', .1, .2, 60, .5, .45, 'spots');
-SPC('Convict cichlid', 'Amatitlania nigrofasciata', 'cichlid', 'creviceHider', 'lake', .07, .1, 215, .05, .6, 'bars');
-SPC('Jack Dempsey cichlid', 'Rocio octofasciata', 'cichlid', 'pursuitPredator', 'floodplain', .15, .25, 260, .2, .3, 'spots');
-SPC('Peacock bass', 'Cichla ocellaris', 'cichlid', 'pursuitPredator', 'floodplain', .4, .7, 60, .4, .35, 'bars');
-SPC('Red zebra cichlid', 'Maylandia estherae', 'cichlid', 'grazer', 'lake', .08, .12, 15, .9, .55);
-SPC('Frontosa cichlid', 'Cyphotilapia frontosa', 'cichlid', 'bottomSifter', 'lake', .25, .35, 215, .1, .7, 'bars');
-SPC('Dwarf gourami', 'Trichogaster lalius', 'gourami', 'airBreather', 'slowRiver', .05, .07, 10, .8, .5, 'stripes');
-SPC('Kissing gourami', 'Helostoma temminckii', 'gourami', 'airBreather', 'slowRiver', .2, .3, 20, .3, .7);
-SPC('Black ghost knifefish', 'Apteronotus albifrons', 'knifefish', 'nocturnalHunter', 'blackwater', .3, .5, 0, 0, .06);
-SPC('Senegal bichir', 'Polypterus senegalus', 'bichir', 'ambush', 'slowRiver', .3, .4, 60, .3, .4);
-SPC('Reedfish', 'Erpetoichthys calabaricus', 'bichir', 'ambush', 'blackwater', .3, .9, 60, .5, .35);
-SPC('Spotted gar', 'Lepisosteus oculatus', 'gar', 'ambush', 'slowRiver', .6, 1, 75, .35, .35, 'spots');
-SPC('Longnose gar', 'Lepisosteus osseus', 'gar', 'ambush', 'lake', 1, 1.8, 70, .3, .35, 'spots');
-SPC('Lake sturgeon', 'Acipenser fulvescens', 'sturgeon', 'bottomSifter', 'lake', 1.2, 2.4, 40, .1, .3);
-SPC('Atlantic sturgeon', 'Acipenser oxyrinchus', 'sturgeon', 'bottomSifter', 'brackish', 1.5, 3, 205, .1, .3);
-SPC('Chinook salmon', 'Oncorhynchus tshawytscha', 'salmonid', 'pursuitPredator', 'fastRiver', .7, 1.2, 205, .2, .4, 'spots');
-SPC('Arctic char', 'Salvelinus alpinus', 'salmonid', 'pursuitPredator', 'mountainStream', .3, .6, 25, .5, .4, 'spots');
-SPC('Brook trout', 'Salvelinus fontinalis', 'salmonid', 'currentHolder', 'mountainStream', .25, .45, 80, .35, .3, 'spots');
-SPC('European grayling', 'Thymallus thymallus', 'salmonid', 'currentHolder', 'fastRiver', .3, .5, 200, .1, .4, 'spots');
-SPC('Lake trout', 'Salvelinus namaycush', 'salmonid', 'pursuitPredator', 'lake', .5, .9, 80, .2, .35, 'spots');
-/* deep sea & relicts */
-SPC('Fangtooth', 'Anoplogaster cornuta', 'viperfish', 'ambush', 'mesopelagic', .12, .18, 30, .2, .1);
-SPC('Marine hatchetfish', 'Argyropelecus aculeatus', 'myctophid', 'verticalMigrator', 'mesopelagic', .05, .09, 205, .1, .65);
-SPC('Football anglerfish', 'Himantolophus groenlandicus', 'anglerfish', 'lurer', 'abyssal', .2, .6, 20, .1, .1);
-SPC('Black swallower', 'Chiasmodon niger', 'viperfish', 'ambush', 'mesopelagic', .15, .25, 0, 0, .06);
-SPC('Giant grenadier', 'Albatrossia pectoralis', 'grenadier', 'deepBenthic', 'abyssal', .8, 1.5, 30, .1, .2);
-SPC('Blobfish', 'Psychrolutes marcidus', 'snailfish', 'deepBenthic', 'abyssal', .2, .3, 10, .3, .7);
-SPC('Indonesian coelacanth', 'Latimeria menadoensis', 'coelacanth', 'nocturnalHunter', 'deepReef', 1.2, 1.8, 30, .4, .3);
-/* goldfish: deep egg-shaped trunk, short deep peduncle, long flowing veil-like caudal and tall dorsal (ornamental form) */
-Object.assign(SPECIES.find(s => s.id === 'goldfish').t, {
-  'body.fineness': r(1.7, 1.95), 'body.width': r(.58, .7), 'body.peakU': r(.39, .44),
-  'body.frontPow': 1, 'body.backPow': r(2.25, 2.65), 'body.snoutDepth': .28, 'body.pedDepth': .21,
-  'body.pedU': .86, 'body.superN': 1.95, 'head.lengthFrac': r(.22, .26),
-  'head.snoutTaper': .3, 'head.foreheadSlope': .08, 'head.eyeSize': r(.13, .16),
-  'mouth.type': 'protrusible', 'mouth.lips': .35, 'fins.pectoral.v': r(-.5, -.4),
-  'fins.pectoral.len': r(.46, .58), 'fins.pectoral.opacity': .74,
-  'fins.dorsal.height': r(.4, .52), 'fins.dorsal.opacity': .82,
-  'fins.caudal.type': 'fantail', 'fins.caudal.len': r(.32, .39),
-  'fins.caudal.aspect': r(1.35, 1.65), 'fins.caudal.notch': .45,
-  'fins.caudal.span': r(1.4, 1.75), 'fins.caudal.opacity': .76,
-  'skin.scaleSize': r(.68, .9), 'skin.gloss': .68, 'skin.belly': [28, .72, .64],
-  'skin.countershade': .16, 'skin.eye': [34, .18, .12]
-});
-/* ==================================================================
-   ANATOMICAL CONSTRUCTION PROFILES
-   Inherited construction data, distinct from ecology. Niche sampling
-   cannot turn cartilaginous fins into a teleost's spiny membrane.
-   ================================================================== */
-/** @typedef {{family:string,solid:boolean,gills:string,root:number,tailSpan:number[],locks:Object,bounds:Object,traits:Object}} AnatomyProfile */
-const ANATOMY = {
   fish: { family: 'rayfin', label: 'Ray-finned fusiform', solid: false, gills: 'opercular', root: .036, freeTip: 0, eyeInset: .32, tailSpan: [.85, 2.4], dorsalLimit: 1.15,
     locks: { 'head.operculum': true, 'head.gillSlits': 0 }, bounds: { 'head.gillStart': [.45, .78], 'mouth.cavityDepth': [.3, .78] },
     traits: { 'body.shoulder': r(.12, .22), 'body.tailTaper': r(.58, .75), 'fins.caudal.span': r(1.2, 1.7), 'fins.caudal.notch': r(.48, .63) } },
@@ -212,3 +156,60 @@ const SWIM_TAILS = { thunniform: ['lunate', 'heterocercal'], anguilliform: ['rou
 const sizeClass = L => L < .08 ? 'tiny' : L < .3 ? 'small' : L < 1 ? 'medium' : L < 3 ? 'large' : 'giant';
 function caudalLenMax(g) { const t = g.fins.caudal.type; return t === 'lunate' || t === 'forked' ? .35 : t === 'filamentous' ? 1.6 : .6; }
 /** Approximate morphometrics from genome alone (geometry builder refines caudal AR / areas). */
+// @@PART js/app.part07.js (7/19) lines 1027-1261 of the original module script -- stripped by build.mjs
+function metrics(g) {
+  const bp = bodyProfile(g), lm = landmarks(g), f = g.fins, maxD = bp.maxD;
+  let lat = 0; for (let i = 0; i < 50; i++) lat += bp.depth((i + .5) / 50) / 50;
+  const finA = {};
+  const dA = sp => (sp.e - sp.s) * sp.h * maxD * (FIN_FILL[sp.shape] || .7);
+  finA.dorsal = f.dorsal.present && f.dorsal.count > 0 ? dA({ s: lm.dorsalOrigin, e: lm.dorsalEnd, h: f.dorsal.height, shape: f.dorsal.shape }) + (f.dorsal.count >= 2 ? dA({ s: lm.dorsal2Origin, e: lm.dorsal2End, h: f.dorsal2.height, shape: f.dorsal2.shape }) : 0) + (f.dorsal.count === 3 ? dA({ s: lm.dorsal3Origin, e: lm.dorsal3End, h: f.dorsal3.height, shape: f.dorsal3.shape }) : 0) : 0;
+  finA.anal = f.anal.present ? dA({ s: lm.analOrigin, e: lm.analEnd, h: f.anal.height, shape: f.anal.shape }) : 0;
+  finA.pectoral = f.pectoral.present ? 2 * f.pectoral.len * maxD * f.pectoral.baseLen * bp.depth(lm.pectoralBase) * .6 : 0;
+  finA.pelvic = f.pelvic.present ? 2 * f.pelvic.len * maxD * .2 * maxD : 0;
+  finA.caudal = f.caudal.present ? f.caudal.len * f.caudal.len * f.caudal.aspect * (CAUDAL_FILL[f.caudal.type] || .6) : 0;
+  const fr = {}; for (const k in finA) fr[k] = +(finA[k] / Math.max(1e-6, lat)).toFixed(3);
+  return { fineness: +g.body.fineness.toFixed(2), caudalAR: f.caudal.present ? +(f.caudal.aspect / (CAUDAL_FILL[f.caudal.type] || .6)).toFixed(2) : 0, relGape: +(g.mouth.gape * headDepth(g, bp)).toFixed(3), gapeOfHead: +g.mouth.gape.toFixed(2), finAreaFractions: fr, lateralAreaFrac: +lat.toFixed(3) };
+}
+FG.bodyProfile = bodyProfile; FG.landmarks = landmarks; FG.metrics = metrics;
+
+/* ╔══════════════════════════════════════════════════════════════════╗
+   ║ 6. BIOLOGICAL RULES ENGINE (declarative table + fixed-point run) ║
+   ╚══════════════════════════════════════════════════════════════════╝ */
+/** @typedef {{rule:string,path:string,from:any,to:any}} Repair */
+const RULES = [];
+const RULE = (id, desc, fn) => RULES.push({ id, desc, fn });
+function clampLog(g, log, rule, path, lo, hi) {
+  const v = getP(g, path); if (hi < lo) hi = lo;
+  if (!isNum(v)) { setP(g, path, lo); log.push({ rule, path, from: v, to: lo }); return; }
+  const nv = clamp(v, lo, hi); if (Math.abs(nv - v) > 1e-9) { setP(g, path, nv); log.push({ rule, path, from: +v.toFixed(4), to: +nv.toFixed(4) }); }
+}
+function setLog(g, log, rule, path, val) { const v = getP(g, path); if (v !== val) { setP(g, path, val); log.push({ rule, path, from: v, to: val }); } }
+RULE('schema_bounds', 'Every trait inside schema bounds / enums; no NaN', (g, lm, log) => {
+  for (const p in SCHEMA) { const e = SCHEMA[p], v = getP(g, p);
+    if (e.t === 'n' || e.t === 'i') { if (!isNum(v)) { setLog(g, log, 'schema_bounds', p, e.def); continue; } clampLog(g, log, 'schema_bounds', p, e.min, e.max); if (e.t === 'i' && Math.round(getP(g, p)) !== getP(g, p)) setLog(g, log, 'schema_bounds', p, Math.round(getP(g, p))); }
+    else if (e.t === 's') { if (!e.opts.includes(v)) setLog(g, log, 'schema_bounds', p, e.def); }
+    else if (e.t === 'b') { if (typeof v !== 'boolean') setLog(g, log, 'schema_bounds', p, !!v); }
+    else if (e.t === 'hsl') { if (!Array.isArray(v) || v.length !== 3 || !v.every(isNum)) setLog(g, log, 'schema_bounds', p, e.def.slice()); else { const c2 = [((v[0] % 360) + 360) % 360, clamp(v[1], 0, 1), clamp(v[2], 0, 1)]; if (c2.some((x, i) => x !== v[i])) setLog(g, log, 'schema_bounds', p, c2); } } }
+});
+RULE('gape_head', 'Gape ≤ head height and ≤ 0.95 × body depth at mouth corner', (g, lm, log) => {
+  const bp = bodyProfile(g), hd = headDepth(g, bp), h = g.head.lengthFrac;
+  let gp = g.mouth.gape, it = 0;
+  while (it++ < 120 && gp > 0.05 && gp * hd > 0.95 * bp.depth(h * (0.12 + 0.6 * gp))) gp -= 0.01;
+  gp = Math.max(0.05, gp);
+  if (gp < g.mouth.gape - 1e-9) { log.push({ rule: 'gape_head', path: 'mouth.gape', from: +g.mouth.gape.toFixed(3), to: +gp.toFixed(3) }); g.mouth.gape = gp; }
+  if (g.mouth.type === 'beak' || g.mouth.type === 'tube') clampLog(g, log, 'gape_head', 'mouth.gape', 0.05, 0.25);
+});
+RULE('dorsal_range', 'Dorsal bases ordered, non-overlapping, inside their segment', (g, lm, log) => {
+  const d = g.fins.dorsal; clampLog(g, log, 'dorsal_range', 'fins.dorsal.u0', 0, 0.9); clampLog(g, log, 'dorsal_range', 'fins.dorsal.u1', d.u0 + 0.05, 1);
+  if (d.count >= 2) { if (d.u1 > .87) clampLog(g, log, 'dorsal_range', 'fins.dorsal.u1', d.u0 + .05, .87); clampLog(g, log, 'dorsal_range', 'fins.dorsal2.u0', d.u1 + .02, .93); clampLog(g, log, 'dorsal_range', 'fins.dorsal2.u1', g.fins.dorsal2.u0 + .03, d.count === 3 ? .88 : 1); }
+  if (d.count === 3) { clampLog(g, log, 'dorsal_range', 'fins.dorsal2.u1', g.fins.dorsal2.u0 + .03, .86); clampLog(g, log, 'dorsal_range', 'fins.dorsal3.u0', g.fins.dorsal2.u1 + .02, .95); clampLog(g, log, 'dorsal_range', 'fins.dorsal3.u1', g.fins.dorsal3.u0 + .025, 1); }
+  if (d.count === 0 && d.present) setLog(g, log, 'dorsal_range', 'fins.dorsal.present', false);
+});
+RULE('anal_range', 'Anal base ordered and inside [vent, peduncle]', (g, lm, log) => { clampLog(g, log, 'anal_range', 'fins.anal.u0', 0, 0.9); clampLog(g, log, 'anal_range', 'fins.anal.u1', g.fins.anal.u0 + 0.05, 1); });
+RULE('pectoral_base', 'Pectoral base ≤ 0.9 × local depth, behind operculum', (g, lm, log) => { clampLog(g, log, 'pectoral_base', 'fins.pectoral.baseLen', 0.03, 0.9); clampLog(g, log, 'pectoral_base', 'fins.pectoral.u', 0, 1); });
+RULE('pelvic_ventral', 'Pelvics use ventral landmarks; true eel clades lack pelvics', (g, lm, log) => { if (cladeTags(g.meta.clade).has('eelLike') && g.fins.pelvic.present) setLog(g, log, 'pelvic_ventral', 'fins.pelvic.present', false); });
+RULE('tail_swim_coherence', 'Caudal type consistent with swim mode', (g, lm, log) => { const ok = SWIM_TAILS[g.swim.mode] || CAUDAL_TYPES; if (g.fins.caudal.present && !ok.includes(g.fins.caudal.type)) setLog(g, log, 'tail_swim_coherence', 'fins.caudal.type', ok[0]); });
+RULE('caudal_aspect', 'Caudal aspect ratio bounded by its type', (g, lm, log) => { const ar = CAUDAL_AR[g.fins.caudal.type]; if (ar) clampLog(g, log, 'caudal_aspect', 'fins.caudal.aspect', ar[0], ar[1]); });
+RULE('caudal_len', 'Caudal length bounded by type', (g, lm, log) => { clampLog(g, log, 'caudal_len', 'fins.caudal.len', 0.03, caudalLenMax(g)); });
+RULE('caudal_vs_peduncle', 'Caudal span ≥ 1.1 × peduncle depth; peduncle compatible with tail', (g, lm, log) => {
+  const c2 = g.fins.caudal; if (!c2.present) return; const ped = bodyProfile(g).depth(0.999);

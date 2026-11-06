@@ -1,69 +1,3 @@
-// @@PART js/app.part09.js (9/19) lines 1558-1847 of the original module script -- stripped by build.mjs
-/** Fuzzy species lookup: full name, all significant words, or scientific name. */
-function findSpecies(text) {
-  const t = normText(text); let best = null, score = 0;
-  for (const s of SPECIES) {
-    const n = s.n.toLowerCase().replace(/[^a-z0-9\s\-]/g, ' '), sci = s.sci.toLowerCase(); let sc = 0;
-    if (t.includes(' ' + n + ' ') || t.includes(' ' + sci + ' ')) sc = 100 + n.length;
-    else { const words = n.split(/[\s\-]+/).filter(x => x.length > 3); if (words.length && words.every(x => t.includes(' ' + x))) sc = 50 + words.join('').length; else if (words.length > 1 && words.filter(x => t.includes(' ' + x)).length >= Math.ceil(words.length * .67)) sc = 20 + words.length; }
-    if (sc > score) { score = sc; best = s; }
-  }
-  return best;
-}
-function findHabitat(text) { const t = normText(text); for (const h in HAB_ALIASES) if (HAB_ALIASES[h].some(w => t.includes(w))) return h; return null; }
-function genomeFromText(prompt, seed, defaultHabitat) {
-  const t = normText(prompt);
-  const has = ws => ws.some(w => t.includes(w)); const opts = { overrides: {}, seed: seed != null ? seed : cyrb128(prompt)[0].toString(36) };
-  const best = findSpecies(prompt);
-  if (best) opts.species = best.id;
-  for (const [ph, id] of CLADE_PHRASES) if (t.includes(' ' + ph + ' ') || t.includes(' ' + ph + 's ') || t.includes(' ' + ph + 'es ')) { opts.clade = id; break; }
-  const habHit = findHabitat(prompt); if (habHit) opts.habitat = habHit; else if (defaultHabitat && HABITATS[defaultHabitat]) opts.habitat = defaultHabitat;
-  for (const n in NICHE_ALIASES) if (has(NICHE_ALIASES[n])) { opts.niche = n; break; }
-  const o = opts.overrides; const cols = Object.keys(COLOR_WORDS).filter(w => t.includes(' ' + w)).sort((a, b) => t.indexOf(' ' + a) - t.indexOf(' ' + b));
-  if (cols[0]) { o['skin.base'] = COLOR_WORDS[cols[0]].slice(); o['skin.fin'] = [COLOR_WORDS[cols[0]][0], COLOR_WORDS[cols[0]][1] * .7, Math.min(.9, COLOR_WORDS[cols[0]][2] + .1)]; }
-  if (cols[1]) o['skin.accent'] = COLOR_WORDS[cols[1]].slice();
-  if (has(['stripe'])) o['skin.pattern'] = 'stripes'; else if (has(['band', 'bar '])) o['skin.pattern'] = 'bars'; else if (has(['spot', 'dot', 'polka'])) o['skin.pattern'] = 'spots'; else if (has(['mottl', 'blotch'])) o['skin.pattern'] = 'mottle'; else if (has(['eyespot', 'ocell'])) o['skin.pattern'] = 'eyespot'; else if (has(['reticul', ' net', 'honeycomb'])) o['skin.pattern'] = 'reticulate'; else if (has(['saddle'])) o['skin.pattern'] = 'saddles'; else if (has(['plain', 'solid'])) o['skin.pattern'] = 'none';
-  if (o['skin.pattern'] && o['skin.pattern'] !== 'none') o['skin.patternStrength'] = .9;
-  if (has(['tiny', 'minute'])) o['body.length'] = .04; else if (has(['small', 'little'])) o['body.length'] = .1; else if (has(['huge', 'giant', 'enormous', 'massive', 'colossal'])) o['body.length'] = 3; else if (has(['large', 'big'])) o['body.length'] = 1.2;
-  if (has(['eel-like', 'eellike', 'snake', 'serpent', 'ribbon'])) { o['body.fineness'] = 11; o['swim.mode'] = 'anguilliform'; } else if (has(['long', 'slender', 'elongat', 'skinny', 'torpedo', 'streamlined'])) o['body.fineness'] = 6.5; else if (has(['deep-bodied', 'deep bodied', 'tall', 'disc', 'discus', 'pancake'])) o['body.fineness'] = 1.9; else if (has(['round', 'fat', 'chubby', 'plump', 'globular'])) { o['body.fineness'] = 2.6; o['body.width'] = .85; }
-  if (has(['flattened', 'depressed', 'flat '])) { o['body.width'] = 1.8; o['body.ventralFlat'] = 1; }
-  if (has(['compressed', 'laterally'])) o['body.width'] = .3;
-  if (has(['barbel', 'whisker'])) { o['head.barbels'] = 4; o['head.barbelLen'] = .6; }
-  if (has(['glow', 'biolum', 'lumin', 'light organ', 'photophore'])) o['skin.photophores'] = 30;
-  if (has(['sword'])) { o['head.special'] = 'sword'; o['head.specialLen'] = .32; } else if (has(['bill', 'spear'])) { o['head.special'] = 'bill'; o['head.specialLen'] = .22; } else if (has(['hammer'])) { o['head.special'] = 'hammer'; } else if (has(['horn', 'antler'])) { o['head.special'] = 'horns'; o['head.specialLen'] = .12; } else if (has(['lure', 'esca', 'fishing rod'])) { o['head.special'] = 'esca'; o['head.specialLen'] = .35; } else if (has(['saw'])) { o['head.special'] = 'rostrum'; o['head.specialLen'] = .28; }
-  if (has(['fang'])) { o['mouth.teeth'] = 'fang'; o['mouth.teethCount'] = 24; o['mouth.gape'] = .7; } else if (has(['needle teeth', 'needle-like'])) { o['mouth.teeth'] = 'needle'; o['mouth.teethCount'] = 40; } else if (has(['beak', 'parrot'])) { o['mouth.type'] = 'beak'; o['mouth.teeth'] = 'beak'; } else if (has(['toothless', 'no teeth'])) { o['mouth.teeth'] = 'none'; } else if (has(['big mouth', 'huge mouth', 'gaping', 'wide mouth', 'large mouth'])) o['mouth.gape'] = .85;
-  if (has(['sucker mouth', 'suction'])) o['mouth.type'] = 'suction'; else if (has(['upturned', 'superior mouth'])) o['mouth.type'] = 'superior'; else if (has(['underslung', 'inferior mouth', 'under the snout'])) o['mouth.type'] = 'inferior'; else if (has(['tube snout', 'tubular', 'pipette'])) o['mouth.type'] = 'tube';
-  if (has(['armor', 'armour', 'plated', 'bony plates'])) o['skin.scale'] = 'plates'; else if (has(['scaleless', 'naked', 'smooth skin'])) o['skin.scale'] = 'bare'; else if (has(['ganoid', 'diamond scale'])) o['skin.scale'] = 'ganoid';
-  if (has(['translucent', 'glass', 'transparent', 'see-through'])) o['skin.translucency'] = .75;
-  if (has(['iridescent', 'shimmer', 'metallic', 'shiny', 'holographic'])) o['skin.iridescence'] = 1;
-  if (has(['venomous spines', 'spiny dorsal', 'tall spines', 'quill'])) { o['fins.dorsal.shape'] = 'spines'; o['fins.dorsal.height'] = 1.1; o['fins.dorsal.spines'] = 13; }
-  if (has(['sail fin', 'sailfin', 'huge dorsal', 'tall dorsal', 'sail-like'])) { o['fins.dorsal.shape'] = 'sail'; o['fins.dorsal.height'] = 1.4; }
-  if (has(['veil', 'flowing fins', 'long fins', 'trailing'])) { o['fins.caudal.len'] = .5; o['fins.caudal.flex'] = .95; o['fins.dorsal.flex'] = .95; }
-  if (has(['lunate', 'crescent tail', 'sickle tail'])) o['fins.caudal.type'] = 'lunate'; else if (has(['forked tail'])) o['fins.caudal.type'] = 'forked'; else if (has(['round tail', 'rounded tail', 'paddle tail'])) o['fins.caudal.type'] = 'rounded'; else if (has(['whip tail', 'whip-like', 'filament'])) o['fins.caudal.type'] = 'filamentous';
-  if (has(['big eyes', 'huge eyes', 'large eyes', 'bug-eyed'])) o['head.eyeSize'] = .36; else if (has(['tiny eyes', 'small eyes', 'blind', 'eyeless'])) { o['head.eyeSize'] = .07; if (has(['blind', 'eyeless'])) o['head.eyeSide'] = 'none'; }
-  if (has(['wing', 'glide', 'flying'])) { o['fins.pectoral.shape'] = 'wing'; o['fins.pectoral.len'] = 2.4; }
-  if (has(['humped', 'hump', 'bulbous forehead', 'nuchal'])) o['body.hump'] = .8;
-  if (has(['electric', 'shock'])) o['skin.electric'] = true;
-  if (has(['puffer', 'inflat', 'balloon'])) o['skin.inflate'] = true;
-  if (has(['fantasy', 'fictional', 'mythic', 'alien'])) { if (!opts.habitat) opts.habitat = 'void'; }
-  return generate(opts);
-}
-/* ── pluggable LLM endpoint (returns JSON; schema-validated and rule-repaired, never trusted) ── */
-FG.llm = { endpoint: safeStore.get('fg_llm_endpoint') || '', key: safeStore.get('fg_llm_key') || '', model: safeStore.get('fg_llm_model') || '' };
-function schemaSummary() { const o = {}; for (const p in SCHEMA) { const e = SCHEMA[p]; o[p] = e.t === 's' ? e.opts.join('|') : e.t === 'b' ? 'bool' : e.t === 'hsl' ? '[h0-360,s0-1,l0-1]' : `${e.t === 'i' ? 'int' : 'num'} ${e.min}..${e.max}`; } return o; }
-function extractJSON(txt) { const s = txt.indexOf('{'), e = txt.lastIndexOf('}'); if (s < 0 || e < 0) throw new Error('No JSON object in LLM response'); return JSON.parse(txt.slice(s, e + 1)); }
-async function genomeFromLLM(prompt) {
-  if (!FG.llm.endpoint) throw new Error('No LLM endpoint configured (Text panel → endpoint). The offline parser is used otherwise.');
-  const body = { model: FG.llm.model || undefined, prompt, instruction: 'You design a fish. Return ONLY a JSON object: {"meta":{"habitat":ID,"niche":ID,"clade":ID},"overrides":{"<schema path>":value}}. Only use listed IDs and schema paths.', ids: { habitats: Object.keys(HABITATS), niches: Object.keys(NICHES), clades: Object.keys(CLADES) }, schema: schemaSummary() };
-  const headers = { 'Content-Type': 'application/json' }; if (FG.llm.key) headers.Authorization = 'Bearer ' + FG.llm.key;
-  const res = await fetch(FG.llm.endpoint, { method: 'POST', headers, body: JSON.stringify(body) });
-  if (!res.ok) throw new Error('LLM endpoint HTTP ' + res.status);
-  const json = extractJSON(await res.text());
-  const src = json.overrides && typeof json.overrides === 'object' ? json.overrides : null;
-  const meta = json.meta || {};
-  if (!src) { const { genome, issues } = validateGenome(json); genome.meta.seed = genome.meta.seed || 'llm'; genome.meta.repairs = issues.map(i => ({ rule: 'schema_validate', path: '-', from: '-', to: i })); return finalize(genome); }
-  const overrides = {}; const { genome: v, issues } = validateGenome({ ...Object.fromEntries([]), ...unflatten(src) });
-  for (const p in src) if (SCHEMA[p]) overrides[p] = getP(v, p);
   const g = generate({ habitat: HABITATS[meta.habitat] ? meta.habitat : undefined, niche: NICHES[meta.niche] ? meta.niche : undefined, clade: CLADES[meta.clade] ? meta.clade : undefined, seed: 'llm:' + cyrb128(prompt)[0].toString(36), overrides });
   g.meta.repairs.unshift(...issues.map(i => ({ rule: 'schema_validate', path: '-', from: '-', to: i }))); return g;
 }
@@ -160,7 +94,9 @@ class BodyModel {
     if (g.head.special === 'bill' || g.head.special === 'sword') this.jawStartU = Math.min(this.mcU * .5, Math.max(this.jawStartU, this.mcU * .35));
     /* eyeSize = visible eye diameter as a fraction of head length; the ball is recessed so only ~0.73 of its radius shows */
     this.eyeR = g.head.eyeSize * this.h * this.L * 0.69;
-    this.eyeY = g.head.eyeV * this.bp.depth(this.lm.eye) * this.L * b.dorsalFrac * 0.7;
+    this.eyeY = LAW.eyeStation(g, this.law.eye, this.ax) * this.bp.depth(this.lm.eye) * this.L * b.dorsalFrac * 0.7;
+    this.cheekK = (this.law.mouth.cheek - .4) * .05;      /* adductor (cheek) mass scales with the bite niche: massive for ambush crushers, slim for pickers */
+    this.protrusile = this.law.mouth.construction === 'jawed' && (this.law.mouth.picking || g.mouth.protrusible || g.mouth.type === 'protrusible');
     /* jaw articulation: behind the mouth corner and never in front of the eye line, always ahead of the gill opening */
     this.hingeU = clamp(Math.max(this.mcU + .004, this.lm.eye), this.mcU, Math.max(this.mcU, this.h * g.head.gillStart - .006));
     if (this.law.flat) { const sp = this.L * (this.a.family === 'ray' ? clamp(g.fins.pectoral.len * .47, .58, 1.23) : .42); this.discMargin = sp * this.law.flat.marginFrac; }
@@ -182,7 +118,7 @@ class BodyModel {
     }
     const shoulder = 1 + b.shoulder * .11 * gaussf((u - this.h * .93) / (this.h * .35));
     s.dUp = d * b.dorsalFrac; s.dDn = d * (1 - b.dorsalFrac); s.w = w * .5 * shoulder;
-    s.w *= 1 + g.head.cheek * .05 * gaussf((u - this.h * .77) / (this.h * .22));
+    s.w *= 1 + (g.head.cheek * .05 + this.cheekK) * gaussf((u - this.h * .77) / (this.h * .22));
     if (b.hump > 0) s.dUp += b.hump * this.maxD * 0.22 * gaussf((u - 0.2) / 0.11);
     s.n = lerp(b.superN, b.superNTail, sstep(0.5, 1, u)); s.nV = s.n * (1 + 3 * b.ventralFlat); s.nD = s.n * (1 + 2.5 * b.dorsalFlat);
     const h = this.h, headBlend = 1 - sstep(h * .9, h * 1.4, u);
@@ -224,9 +160,9 @@ class BodyModel {
     }
     const h = this.h;
     if (g.head.gillSlits && this.a.gills === 'lateral' && u > this.lm.gillStart - .02 && u < this.lm.gillEnd + .02) {
-      const face = 1 - sstep(.58, .9, Math.abs(st));
       for (let i = 0; i < g.head.gillSlits; i++) {
         const gu = lerp(this.lm.gillStart, this.lm.gillEnd, (i + .5) / g.head.gillSlits) + g.head.gillSlant * h * .06 * (1 - st * st);
+        const lf = .62 + .38 * Math.sin(Math.PI * (i + .5) / g.head.gillSlits), face = 1 - sstep(.58 * lf, .9 * lf, Math.abs(st));
         lz -= Math.sign(ct) * s.w * .055 * face * gaussf((u - gu) / (h * .007));
       }
     }
@@ -265,12 +201,18 @@ class BodyModel {
   }
 }
 function buildBodyGeometry(bm, S, R) {
-  const billRings = bm.billStart === null ? 0 : (S < 30 ? 5 : 12), stations = S + billRings;
+  const billRings = bm.billStart === null ? 0 : (S < 30 ? 5 : 12);
+  const Ubase = []; for (let i = 0; i <= S + billRings; i++) { const t = Math.max(0, i - billRings) / S; Ubase.push(i < billRings ? lerp(bm.billStart, .004, (i + 1) / (billRings + 1)) : Math.max(.004, t * (.6 + .4 * t))); }
+  if (!bm.lod && bm.g.head.gillSlits && bm.a.gills === 'lateral') {      /* extra stations across every slit: the groove gets real depth instead of aliasing */
+    const ex = [], hh = bm.h; for (let k = 0; k < bm.g.head.gillSlits; k++) { const gu = lerp(bm.lm.gillStart, bm.lm.gillEnd, (k + .5) / bm.g.head.gillSlits) + bm.g.head.gillSlant * hh * .03; for (let j = -4; j <= 4; j++) ex.push(gu + j * hh * .0032); }
+    for (const e of ex) if (e > .006 && e < .98) Ubase.push(e);
+    Ubase.sort((a, b) => a - b); for (let i = Ubase.length - 1; i > 0; i--) if (Ubase[i] - Ubase[i - 1] < 1e-5) Ubase.splice(i, 1);
+  }
+  const stations = Ubase.length - 1;
   const nV = (stations + 1) * R + 2, pos = new Float32Array(nV * 3), ab = new Float32Array(nV * 4), idx = [], us = new Float64Array(stations + 1);
   const fr = {}, s = {}, p = {}; let v = 0;
   for (let i = 0; i <= stations; i++) {
-    const t = Math.max(0, i - billRings) / S;
-    const u = i < billRings ? lerp(bm.billStart, .004, (i + 1) / (billRings + 1)) : Math.max(.004, t * (.6 + .4 * t));
+    const u = Ubase[i];
     us[i] = u; bm.frame(u, fr); bm.section(u, s);
     for (let j = 0; j < R; j++) { bm.point(u, -Math.PI / 2 + j / R * TAU, p, fr, s); pos[v * 3] = p.x; pos[v * 3 + 1] = p.y; pos[v * 3 + 2] = p.z; ab[v * 4] = u; ab[v * 4 + 1] = j / R; ab[v * 4 + 2] = p.mouth; v++; } }
   bm.frame(bm.billStart === null ? 0 : bm.billStart, fr); const snout = v++; pos[snout * 3] = fr.px - fr.tx * .0002 * bm.L; pos[snout * 3 + 1] = fr.py - fr.ty * .0002 * bm.L; ab[snout * 4] = bm.billStart === null ? 0 : bm.billStart; ab[snout * 4 + 1] = .25;
@@ -282,18 +224,123 @@ function buildBodyGeometry(bm, S, R) {
   return geo;
 }
 function buildOperculum(bm) {
-  const lm = bm.lm, u0 = lm.preopercle, u1 = lm.operculum + .004, NS = 8, NR = 18, pos = [], ab = [], idx = []; const fr = {}, s = {}, p = {}; let v = 0;
+  /* refined cover: the plate is lifted most in its middle and TAPERS to a fine rim that lies flush on the trunk (the body continues uninterrupted underneath);
+     its rear free margin is sampled on the head's own surface (same u / theta system as the body, so pattern and scales continue across the border). */
+  const lm = bm.lm, u0 = lm.preopercle, u1 = lm.operculum + .008, NS = 10, NR = 20, pos = [], ab = [], idx = []; const fr = {}, s = {}, p = {}, nq = {}; let v = 0;
+  const put = (u, th, side, off, tag, w) => {
+    const tb = side > 0 ? th : Math.PI - th, o = bm.maxD * off;
+    if (bm.loft) {          /* sample the RENDERED body surface: the cover is flush with the trunk by construction */
+      bm.sampleLoft(u, tb, p); bm.sampleLoft(u, tb, nq, 'normal'); const nl = Math.hypot(nq.x, nq.y, nq.z) || 1;
+      pos.push(p.x + nq.x / nl * o, p.y + nq.y / nl * o, p.z + nq.z / nl * o);
+    } else {
+      bm.frame(u, fr); bm.section(u, s); bm.point(u, tb, p, fr, s, true);
+      const l = Math.hypot(p.ly, p.lz) || 1;
+      pos.push(p.x + fr.nx * p.ly / l * o, p.y + fr.ny * p.ly / l * o, p.z + p.lz / l * o);
+    }
+    ab.push(u, side > 0 ? .25 + th / TAU : .75 - th / TAU, tag, w); v++;
+  };
   for (const side of [1, -1]) { const v0 = v;
     for (let i = 0; i <= NS; i++) {
+      const f = i / NS, rim = sstep(0, .3, f) * (1 - sstep(.84, 1, f));
       for (let j = 0; j <= NR; j++) {
         const th = lerp(-1.18, 1.08, j / NR), window = Math.pow(Math.sin(Math.PI * j / NR), .7);
-        const u = lerp(u0, u1 + .012 * window, i / NS); bm.frame(u, fr); bm.section(u, s);
-        bm.point(u, side > 0 ? th : Math.PI - th, p, fr, s, true);
-        const edge = smoother(i / NS) * window, l = Math.hypot(p.ly, p.lz) || 1, off = bm.maxD * (.002 + .018 * edge);
-        pos.push(p.x + fr.nx * p.ly / l * off, p.y + fr.ny * p.ly / l * off, p.z + p.lz / l * off);
-        ab.push(u, side > 0 ? .25 + th / TAU : .75 - th / TAU, 3, edge); v++;
+        const u = lerp(u0, u1 + .010 * window, f);
+        const margin = sstep(.88, 1, f) * (.35 + .65 * window);               /* 0 on the plate, 1 along the free margin */
+        put(u, th, side, .0012 + .0105 * rim * Math.pow(window, .8), 3 + .2 * margin, smoother(f) * window);
       }
     }
-    for (let i = 0; i < NS; i++) for (let j = 0; j < NR; j++) { const a = v0 + i * (NR + 1) + j, b2 = a + NR + 1; idx.push(a, a + 1, b2, a + 1, b2 + 1, b2); } }
+    for (let i = 0; i < NS; i++) for (let j = 0; j < NR; j++) { const a = v0 + i * (NR + 1) + j, b2 = a + NR + 1; idx.push(a, a + 1, b2, a + 1, b2 + 1, b2); }
+    /* branchiostegal membrane: fine ray fan under the throat, blending from the cover's lower edge to the isthmus; starts behind the jaw hinge so it never meets the opening jaw */
+    const m0 = v, MS = 6, MR = 8, ua = Math.max(bm.hingeU + .003, u0 * .85);
+    for (let i = 0; i <= MS; i++) for (let j = 0; j <= MR; j++) {
+      const f = i / MS, jn = j / MR, th = lerp(-1.5707963, -1.12, jn), u = lerp(ua, u1 - .002 + .006 * Math.sin(Math.PI * jn), f);
+      put(u, th, side, .0012 + .0055 * Math.sin(Math.PI * Math.pow(f, .9)) * sstep(0, .22, jn), 3.5, Math.sin(Math.PI * f) * (1 - Math.abs(jn - .5) * 1.2));
+    }
+    for (let i = 0; i < MS; i++) for (let j = 0; j < MR; j++) { const a = m0 + i * (MR + 1) + j, b2 = a + MR + 1; idx.push(a, a + 1, b2, a + 1, b2 + 1, b2); } }
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('aBody', new THREE.Float32BufferAttribute(ab, 4)); geo.setIndex(idx); geo.computeVertexNormals(); return geo;
 }
+// @@PART js/app.part10.js (10/19) lines 1848-2150 of the original module script -- stripped by build.mjs
+function buildJawGeometry(bm) {
+  /* lower jaw = lever hinged at the jaw joint (behind the eye line) with a visible jaw angle at its rear; upper jaw = premaxilla patch that slides forward-down with the open amount.
+     Both are skin patches that are flush with the head along the seam, so at rest the lips simply meet (opening 0). */
+  const NJ = 15, M = 16, p = {}, fr = {}, s = {};
+  const u0 = Math.max(bm.jawStartU, .006), u1 = bm.hingeU || bm.mcU, cheek = bm.law.mouth.cheek;
+  bm.frame(u1, fr); bm.section(u1, s);
+  const py = bm.mouthLineY(u1, s), pivot = { x: fr.px + fr.nx * py, y: fr.py + fr.ny * py };
+  const patch = upper => {
+    const pos = [], ab = [], idx = [], uEnd = upper ? lerp(u0, bm.mcU, .8) : u1;
+    for (let i = 0; i <= NJ; i++) {
+      const t = i / NJ, u = lerp(u0, uEnd, t);
+      bm.frame(u, fr); bm.section(u, s);
+      const ym = bm.mouthLineY(u, s), yr = ym > 0 ? s.dUp : s.dDn, n = ym > 0 ? s.nD : s.nV;
+      const rim = Math.asin(Math.sign(ym) * Math.pow(clamp(Math.abs(ym) / Math.max(yr, 1e-8), 0, .98), n * .5));
+      for (let j = 0; j <= M; j++) {
+        const jn = j / M, a = upper ? lerp(rim, Math.PI - rim, jn) : lerp(-Math.PI - rim, rim, jn);
+        bm.point(u, a, p, fr, s, true);
+        let off, w;
+        if (upper) { off = bm.maxD * .003 * Math.sin(Math.PI * t) * Math.pow(Math.sin(Math.PI * jn), .8); w = (1 - sstep(.3, 1, t)) * sstep(.25, .9, Math.abs(2 * jn - 1)); }
+        else {
+          const fade = Math.sin(Math.PI * jn) * Math.sin(Math.PI * t), angle = Math.sin(Math.PI * clamp((t - .55) / .45, 0, 1)) * Math.pow(Math.sin(Math.PI * jn), .8);
+          off = bm.maxD * (.004 * fade + (.006 + .008 * cheek) * angle); w = 1 - sstep(.62, 1, t);          /* jaw angle: a soft angular process at the rear of the lower jaw */
+        }
+        const length = Math.max(1e-8, Math.hypot(p.ly, p.lz));
+        pos.push(p.x + fr.nx * p.ly / length * off, p.y + fr.ny * p.ly / length * off, p.z + p.lz / length * off);
+        ab.push(u, ((a + Math.PI / 2) / TAU + 1) % 1, upper ? 2 : 0, w);
+      }
+    }
+    for (let i = 0; i < NJ; i++) for (let j = 0; j < M; j++) { const a = i * (M + 1) + j, b = a + M + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('aBody', new THREE.Float32BufferAttribute(ab, 4)); geo.setIndex(idx); geo.computeVertexNormals(); return geo;
+  };
+  const geo = patch(false), upper = bm.protrusile ? patch(true) : null;
+  const openAngle = Math.min(.24, Math.atan2(bm.g.mouth.gape * headDepth(bm.g, bm.bp) * bm.L * .42, Math.max(1e-5, (u1 - u0) * bm.L)));
+  return { geo, upper, pivot, openAngle };
+}
+function skinAttributes(geo, bm, tag = 0, jaw = false) {
+  const pos = geo.getAttribute('position'), a = new Float32Array(pos.count * 4);
+  for (let i = 0; i < pos.count; i++) {
+    const u = clamp((bm.headX - pos.getX(i)) / bm.L, .003, .999);
+    const fr = {}; bm.frame(u, fr); const y = (pos.getX(i) - fr.px) * fr.nx + (pos.getY(i) - fr.py) * fr.ny;
+    a[i * 4] = u; a[i * 4 + 1] = ((Math.atan2(y, pos.getZ(i)) + Math.PI / 2) / TAU + 1) % 1;
+    a[i * 4 + 2] = tag; a[i * 4 + 3] = jaw ? 1 - sstep(Math.max(.004, bm.jawStartU) + (bm.mcU - Math.max(.004, bm.jawStartU)) * .85, bm.mcU, u) : 0;
+  }
+  geo.setAttribute('aBody', new THREE.BufferAttribute(a, 4)); return geo;
+}
+const GH = { THREE, clamp, lerp, sstep, smoother, TAU, skinAttributes, mergeGeos };
+/* mouth constructor (see mouthgeo.js): seam + hinged jaws + layered interior for jawed mouths; fused plate; underside sucker disc; tube cap; flattened-plan ventral slot */
+function buildMouthDetails(bm, mats) {
+  const M = bm.law.mouth;
+  if (bm.oralDisc) return MOUTH.buildDisc(bm, mats, GH, M);
+  if (bm.ventralMouth) return [...MOUTH.buildVentralMouth(bm, mats, GH), ...(bm.law.flat && bm.law.flat.spine ? MOUTH.buildTailSpine(bm, mats, GH) : [])];
+  return [...(M.construction === 'fused' ? MOUTH.buildBeak(bm, mats, GH, M) : []), ...(M.construction === 'jawed' ? MOUTH.buildInterior(bm, mats, GH) : [])];
+}
+function buildGills(bm, mats) {
+  const g = bm.g, a = bm.a, pos = [], ab = [], idx = [], p = {}, q = {}; let nv = 0;
+  const slots = g.head.gillSlits || 1;
+  for (const side of [-1, 1]) for (let slot = 0; slot < slots; slot++) {
+    const isCover = a.gills === 'opercular', pores = a.gills === 'pores', ventral = a.gills === 'ventral';
+    const center = isCover ? bm.lm.operculum + .012 : lerp(bm.lm.gillStart, bm.lm.gillEnd, (slot + .5) / slots);
+    const N = pores ? 10 : 14, start = nv;
+    for (let j = 0; j <= N; j++) {
+      const t = j / N;
+      const grade = isCover ? 1 : .62 + .38 * Math.sin(Math.PI * (slot + .5) / slots);          /* graded slit lengths: the middle slit is the longest */
+      let theta = ventral ? -Math.PI / 2 + side * lerp(.06, .06 + .18 * grade, t) : lerp(-.78, .74, t) * g.head.gillHeight * grade;
+      if (!ventral && side < 0) theta = Math.PI - theta;
+      const u = center + g.head.gillSlant * bm.h * .055 * Math.sin(Math.PI * t);
+      const width = bm.h * (pores ? .018 : .012) * Math.pow(Math.sin(Math.PI * t), .6);
+      for (let k = 0; k < 4; k++) {
+        const uu = u + (k - 1.5) * width;
+        bm.rawSurface(uu, theta, p); bm.frame(uu, q);
+        const norm = new THREE.Vector3(); bm.surfaceNormal(uu, theta, norm);
+        const lift = bm.maxD * (k === 0 ? .010 : k === 3 ? .004 : k === 1 ? .0006 : -.0012);      /* front lip raised, throat recessed */
+        pos.push(p.x + norm.x * lift, p.y + norm.y * lift, p.z + norm.z * lift);
+        ab.push(uu, ((theta + Math.PI / 2) / TAU + 1) % 1, k === 1 ? 6.1 : k === 2 ? 6.25 : k === 0 ? 7 : 7.5, Math.sin(Math.PI * t)); nv++;
+      }
+    }
+    for (let j = 0; j < N; j++) for (let k = 0; k < 3; k++) { const v = start + j * 4 + k; idx.push(v, v + 1, v + 4, v + 1, v + 5, v + 4); }
+  }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('aBody', new THREE.Float32BufferAttribute(ab, 4)); geo.setIndex(idx); geo.computeVertexNormals();
+  const m = new THREE.Mesh(geo, mats.body); m.frustumCulled = false; return m;
+}
+/* fins: ray grid membranes merged into one geometry */
+function triArea(P, a, b, c2) { const ax = P[a * 3], ay = P[a * 3 + 1], az = P[a * 3 + 2]; const ux = P[b * 3] - ax, uy = P[b * 3 + 1] - ay, uz = P[b * 3 + 2] - az, vx = P[c2 * 3] - ax, vy = P[c2 * 3 + 1] - ay, vz = P[c2 * 3 + 2] - az; const cx = uy * vz - uz * vy, cy = uz * vx - ux * vz, cz = ux * vy - uy * vx; return 0.5 * Math.sqrt(cx * cx + cy * cy + cz * cz); }
+class FinBuilder {

@@ -1,25 +1,3 @@
-// @@PART js/app.part05.js (5/19) lines 629-813 of the original module script -- stripped by build.mjs
-SP('Neon tetra', 'Paracheirodon innesi', 'characin', 'schooler', 'blackwater', { 'body.length': r(.025, .04), 'skin.pattern': 'stripes', 'skin.patternScale': .55, 'skin.patternStrength': 1, 'skin.base': hsl([195, 205], [.9, 1], [.5, .6]), 'skin.accent': hsl(0, .9, .45), 'skin.belly': hsl(200, .1, .9), 'skin.iridescence': 1 });
-SP('Red-bellied piranha', 'Pygocentrus nattereri', 'piranha', 'pursuitPredator', 'floodplain', {});
-SP('Mexican tetra (cave form)', 'Astyanax mexicanus', 'blindCavefish', 'caveDweller', 'cave', {});
-SP('Channel catfish', 'Ictalurus punctatus', 'siluriform', 'bottomSifter', 'slowRiver', { 'body.length': r(.4, .9), 'fins.caudal.type': 'forked', 'skin.pattern': 'spots' });
-SP('Wels catfish', 'Silurus glanis', 'siluriform', 'ambush', 'lake', { 'body.length': r(1.5, 2.7), 'body.fineness': r(5.5, 6.5), 'fins.dorsal.height': .15, 'fins.adipose.present': false, 'fins.anal.u0': .2, 'fins.anal.u1': .98, 'fins.caudal.type': 'rounded', 'head.barbels': 6, 'skin.pattern': 'mottle' });
-SP('Electric eel', 'Electrophorus electricus', 'knifefish', 'nocturnalHunter', 'floodplain', { 'body.length': r(1.2, 2.2) });
-SP('Northern pike', 'Esox lucius', 'esociform', 'ambush', 'lake', {});
-SP('Great barracuda', 'Sphyraena barracuda', 'barracuda', 'pursuitPredator', 'coralReef', { 'body.length': r(1, 1.6) });
-SP('Oscar', 'Astronotus ocellatus', 'cichlid', 'pursuitPredator', 'floodplain', { 'body.length': r(.25, .4), 'skin.pattern': 'eyespot', 'skin.base': hsl([25, 40], [.3, .5], [.22, .3]), 'skin.accent': hsl(15, .9, .5) });
-SP('Largemouth bass', 'Micropterus salmoides', 'bass', 'ambush', 'lake', { 'body.length': r(.3, .6), 'mouth.gape': r(.6, .7), 'skin.pattern': 'stripes', 'skin.patternScale': .4 });
-SP('Nassau grouper', 'Epinephelus striatus', 'grouper', 'ambush', 'coralReef', { 'body.length': r(.5, 1.1), 'skin.pattern': 'bars', 'skin.base': hsl([25, 40], [.3, .45], [.45, .55]), 'skin.accent': hsl(25, .4, .22) });
-SP('Giant trevally', 'Caranx ignobilis', 'jack', 'pelagicHunter', 'coralReef', { 'body.length': r(.7, 1.5), 'head.foreheadSlope': .55, 'skin.base': hsl([200, 215], [.08, .18], [.4, .5]) });
-SP('Copperband butterflyfish', 'Chelmon rostratus', 'chaetodontid', 'reefManeuverer', 'coralReef', { 'head.snoutTaper': .95, 'body.snoutDepth': .09, 'skin.pattern': 'bars', 'skin.patternScale': 1.1, 'skin.base': hsl(45, .15, .9), 'skin.accent': hsl(28, .9, .55), 'skin.belly': hsl(45, .1, .95) });
-SP('Emperor angelfish', 'Pomacanthus imperator', 'angelfish', 'reefManeuverer', 'coralReef', { 'skin.pattern': 'stripes', 'skin.patternScale': 2.2, 'skin.patternStrength': 1, 'skin.base': hsl([225, 235], [.6, .8], [.3, .4]), 'skin.accent': hsl(50, .95, .55), 'skin.fin': [50, .9, .5] });
-SP('Blue tang', 'Paracanthurus hepatus', 'tang', 'grazer', 'coralReef', { 'skin.pattern': 'none', 'skin.base': hsl([222, 232], [.85, .95], [.4, .5]), 'skin.accent': hsl(230, .5, .08), 'skin.fin': [52, .95, .5], 'skin.belly': hsl(225, .8, .5), 'skin.countershade': .1 });
-SP('Humphead wrasse', 'Cheilinus undulatus', 'wrasse', 'reefManeuverer', 'coralReef', { 'body.length': r(.9, 1.8), 'body.fineness': r(2.6, 3.1), 'body.hump': r(.6, .9), 'mouth.lips': 1, 'skin.pattern': 'reticulate', 'skin.base': hsl([165, 190], [.4, .6], [.4, .5]) });
-SP('Bluebarred parrotfish', 'Scarus ghobban', 'parrotfish', 'grazer', 'coralReef', { 'body.length': r(.4, .8) });
-SP('Bluestreak cleaner wrasse', 'Labroides dimidiatus', 'wrasse', 'cleaner', 'coralReef', { 'body.length': r(.08, .12), 'skin.base': hsl([205, 215], [.7, .9], [.55, .65]), 'skin.accent': hsl(220, .6, .08) });
-SP('Ocellaris clownfish', 'Amphiprion ocellaris', 'clownfish', 'reefManeuverer', 'coralReef', { 'body.length': r(.07, .11) });
-SP('Sergeant major', 'Abudefduf saxatilis', 'damselfish', 'planktivore', 'coralReef', { 'skin.pattern': 'bars', 'skin.patternScale': 1.2, 'skin.patternStrength': 1, 'skin.base': hsl([50, 60], [.5, .7], [.6, .7]), 'skin.accent': hsl(220, .3, .1) });
-SP('Tompot blenny', 'Parablennius gattorugine', 'blenny', 'creviceHider', 'rockyShore', { 'skin.pattern': 'bars', 'skin.base': hsl([25, 40], [.4, .6], [.35, .45]) });
 SP('Round goby', 'Neogobius melanostomus', 'goby', 'bottomSifter', 'brackish', { 'skin.pattern': 'mottle', 'skin.base': hsl([35, 50], [.2, .35], [.35, .45]) });
 SP('Atlantic mudskipper', 'Periophthalmus barbarus', 'mudskipper', 'amphibious', 'mangrove', {});
 SP('Clown triggerfish', 'Balistoides conspicillum', 'triggerfish', 'reefManeuverer', 'coralReef', { 'skin.pattern': 'spots', 'skin.patternScale': .7, 'skin.patternStrength': 1, 'skin.base': hsl([220, 240], [.1, .3], [.05, .1]), 'skin.accent': hsl(40, .1, .95), 'skin.belly': hsl(220, .2, .08), 'skin.fin': [50, .9, .5] });
@@ -184,3 +162,59 @@ SPC('Black bullhead', 'Ameiurus melas', 'siluriform', 'bottomSifter', 'lake', .2
 SPC('Mekong giant catfish', 'Pangasianodon gigas', 'siluriform', 'bottomSifter', 'slowRiver', 2, 3, 205, .05, .4);
 SPC('Chain pickerel', 'Esox niger', 'esociform', 'ambush', 'lake', .4, .8, 75, .4, .3, 'reticulate');
 SPC('Muskellunge', 'Esox masquinongy', 'esociform', 'ambush', 'lake', .9, 1.5, 70, .3, .35, 'bars');
+// @@PART js/app.part06.js (6/19) lines 814-1026 of the original module script -- stripped by build.mjs
+SPC('Northern snakehead', 'Channa argus', 'esociform', 'ambush', 'slowRiver', .5, 1, 70, .3, .25, 'mottle');
+SPC('Smallmouth bass', 'Micropterus dolomieu', 'bass', 'pursuitPredator', 'lake', .3, .5, 60, .35, .35, 'bars');
+SPC('European perch', 'Perca fluviatilis', 'percoid', 'pursuitPredator', 'lake', .2, .4, 75, .45, .35, 'bars');
+SPC('Zander', 'Sander lucioperca', 'percoid', 'pursuitPredator', 'lake', .5, .9, 60, .2, .4, 'bars');
+SPC('Black crappie', 'Pomoxis nigromaculatus', 'percoid', 'planktivore', 'lake', .2, .3, 100, .15, .5, 'mottle');
+SPC('Pumpkinseed', 'Lepomis gibbosus', 'percoid', 'pursuitPredator', 'lake', .1, .2, 60, .5, .45, 'spots');
+SPC('Convict cichlid', 'Amatitlania nigrofasciata', 'cichlid', 'creviceHider', 'lake', .07, .1, 215, .05, .6, 'bars');
+SPC('Jack Dempsey cichlid', 'Rocio octofasciata', 'cichlid', 'pursuitPredator', 'floodplain', .15, .25, 260, .2, .3, 'spots');
+SPC('Peacock bass', 'Cichla ocellaris', 'cichlid', 'pursuitPredator', 'floodplain', .4, .7, 60, .4, .35, 'bars');
+SPC('Red zebra cichlid', 'Maylandia estherae', 'cichlid', 'grazer', 'lake', .08, .12, 15, .9, .55);
+SPC('Frontosa cichlid', 'Cyphotilapia frontosa', 'cichlid', 'bottomSifter', 'lake', .25, .35, 215, .1, .7, 'bars');
+SPC('Dwarf gourami', 'Trichogaster lalius', 'gourami', 'airBreather', 'slowRiver', .05, .07, 10, .8, .5, 'stripes');
+SPC('Kissing gourami', 'Helostoma temminckii', 'gourami', 'airBreather', 'slowRiver', .2, .3, 20, .3, .7);
+SPC('Black ghost knifefish', 'Apteronotus albifrons', 'knifefish', 'nocturnalHunter', 'blackwater', .3, .5, 0, 0, .06);
+SPC('Senegal bichir', 'Polypterus senegalus', 'bichir', 'ambush', 'slowRiver', .3, .4, 60, .3, .4);
+SPC('Reedfish', 'Erpetoichthys calabaricus', 'bichir', 'ambush', 'blackwater', .3, .9, 60, .5, .35);
+SPC('Spotted gar', 'Lepisosteus oculatus', 'gar', 'ambush', 'slowRiver', .6, 1, 75, .35, .35, 'spots');
+SPC('Longnose gar', 'Lepisosteus osseus', 'gar', 'ambush', 'lake', 1, 1.8, 70, .3, .35, 'spots');
+SPC('Lake sturgeon', 'Acipenser fulvescens', 'sturgeon', 'bottomSifter', 'lake', 1.2, 2.4, 40, .1, .3);
+SPC('Atlantic sturgeon', 'Acipenser oxyrinchus', 'sturgeon', 'bottomSifter', 'brackish', 1.5, 3, 205, .1, .3);
+SPC('Chinook salmon', 'Oncorhynchus tshawytscha', 'salmonid', 'pursuitPredator', 'fastRiver', .7, 1.2, 205, .2, .4, 'spots');
+SPC('Arctic char', 'Salvelinus alpinus', 'salmonid', 'pursuitPredator', 'mountainStream', .3, .6, 25, .5, .4, 'spots');
+SPC('Brook trout', 'Salvelinus fontinalis', 'salmonid', 'currentHolder', 'mountainStream', .25, .45, 80, .35, .3, 'spots');
+SPC('European grayling', 'Thymallus thymallus', 'salmonid', 'currentHolder', 'fastRiver', .3, .5, 200, .1, .4, 'spots');
+SPC('Lake trout', 'Salvelinus namaycush', 'salmonid', 'pursuitPredator', 'lake', .5, .9, 80, .2, .35, 'spots');
+/* deep sea & relicts */
+SPC('Fangtooth', 'Anoplogaster cornuta', 'viperfish', 'ambush', 'mesopelagic', .12, .18, 30, .2, .1);
+SPC('Marine hatchetfish', 'Argyropelecus aculeatus', 'myctophid', 'verticalMigrator', 'mesopelagic', .05, .09, 205, .1, .65);
+SPC('Football anglerfish', 'Himantolophus groenlandicus', 'anglerfish', 'lurer', 'abyssal', .2, .6, 20, .1, .1);
+SPC('Black swallower', 'Chiasmodon niger', 'viperfish', 'ambush', 'mesopelagic', .15, .25, 0, 0, .06);
+SPC('Giant grenadier', 'Albatrossia pectoralis', 'grenadier', 'deepBenthic', 'abyssal', .8, 1.5, 30, .1, .2);
+SPC('Blobfish', 'Psychrolutes marcidus', 'snailfish', 'deepBenthic', 'abyssal', .2, .3, 10, .3, .7);
+SPC('Indonesian coelacanth', 'Latimeria menadoensis', 'coelacanth', 'nocturnalHunter', 'deepReef', 1.2, 1.8, 30, .4, .3);
+/* goldfish: deep egg-shaped trunk, short deep peduncle, long flowing veil-like caudal and tall dorsal (ornamental form) */
+Object.assign(SPECIES.find(s => s.id === 'goldfish').t, {
+  'body.fineness': r(1.7, 1.95), 'body.width': r(.58, .7), 'body.peakU': r(.39, .44),
+  'body.frontPow': 1, 'body.backPow': r(2.25, 2.65), 'body.snoutDepth': .28, 'body.pedDepth': .21,
+  'body.pedU': .86, 'body.superN': 1.95, 'head.lengthFrac': r(.22, .26),
+  'head.snoutTaper': .3, 'head.foreheadSlope': .08, 'head.eyeSize': r(.13, .16),
+  'mouth.type': 'protrusible', 'mouth.lips': .35, 'fins.pectoral.v': r(-.5, -.4),
+  'fins.pectoral.len': r(.46, .58), 'fins.pectoral.opacity': .74,
+  'fins.dorsal.height': r(.4, .52), 'fins.dorsal.opacity': .82,
+  'fins.caudal.type': 'fantail', 'fins.caudal.len': r(.32, .39),
+  'fins.caudal.aspect': r(1.35, 1.65), 'fins.caudal.notch': .45,
+  'fins.caudal.span': r(1.4, 1.75), 'fins.caudal.opacity': .76,
+  'skin.scaleSize': r(.68, .9), 'skin.gloss': .68, 'skin.belly': [28, .72, .64],
+  'skin.countershade': .16, 'skin.eye': [34, .18, .12]
+});
+/* ==================================================================
+   ANATOMICAL CONSTRUCTION PROFILES
+   Inherited construction data, distinct from ecology. Niche sampling
+   cannot turn cartilaginous fins into a teleost's spiny membrane.
+   ================================================================== */
+/** @typedef {{family:string,solid:boolean,gills:string,root:number,tailSpan:number[],locks:Object,bounds:Object,traits:Object}} AnatomyProfile */
+const ANATOMY = {

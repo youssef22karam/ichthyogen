@@ -1,60 +1,3 @@
-// @@PART js/app.part07.js (7/19) lines 1027-1261 of the original module script -- stripped by build.mjs
-function metrics(g) {
-  const bp = bodyProfile(g), lm = landmarks(g), f = g.fins, maxD = bp.maxD;
-  let lat = 0; for (let i = 0; i < 50; i++) lat += bp.depth((i + .5) / 50) / 50;
-  const finA = {};
-  const dA = sp => (sp.e - sp.s) * sp.h * maxD * (FIN_FILL[sp.shape] || .7);
-  finA.dorsal = f.dorsal.present && f.dorsal.count > 0 ? dA({ s: lm.dorsalOrigin, e: lm.dorsalEnd, h: f.dorsal.height, shape: f.dorsal.shape }) + (f.dorsal.count >= 2 ? dA({ s: lm.dorsal2Origin, e: lm.dorsal2End, h: f.dorsal2.height, shape: f.dorsal2.shape }) : 0) + (f.dorsal.count === 3 ? dA({ s: lm.dorsal3Origin, e: lm.dorsal3End, h: f.dorsal3.height, shape: f.dorsal3.shape }) : 0) : 0;
-  finA.anal = f.anal.present ? dA({ s: lm.analOrigin, e: lm.analEnd, h: f.anal.height, shape: f.anal.shape }) : 0;
-  finA.pectoral = f.pectoral.present ? 2 * f.pectoral.len * maxD * f.pectoral.baseLen * bp.depth(lm.pectoralBase) * .6 : 0;
-  finA.pelvic = f.pelvic.present ? 2 * f.pelvic.len * maxD * .2 * maxD : 0;
-  finA.caudal = f.caudal.present ? f.caudal.len * f.caudal.len * f.caudal.aspect * (CAUDAL_FILL[f.caudal.type] || .6) : 0;
-  const fr = {}; for (const k in finA) fr[k] = +(finA[k] / Math.max(1e-6, lat)).toFixed(3);
-  return { fineness: +g.body.fineness.toFixed(2), caudalAR: f.caudal.present ? +(f.caudal.aspect / (CAUDAL_FILL[f.caudal.type] || .6)).toFixed(2) : 0, relGape: +(g.mouth.gape * headDepth(g, bp)).toFixed(3), gapeOfHead: +g.mouth.gape.toFixed(2), finAreaFractions: fr, lateralAreaFrac: +lat.toFixed(3) };
-}
-FG.bodyProfile = bodyProfile; FG.landmarks = landmarks; FG.metrics = metrics;
-
-/* ╔══════════════════════════════════════════════════════════════════╗
-   ║ 6. BIOLOGICAL RULES ENGINE (declarative table + fixed-point run) ║
-   ╚══════════════════════════════════════════════════════════════════╝ */
-/** @typedef {{rule:string,path:string,from:any,to:any}} Repair */
-const RULES = [];
-const RULE = (id, desc, fn) => RULES.push({ id, desc, fn });
-function clampLog(g, log, rule, path, lo, hi) {
-  const v = getP(g, path); if (hi < lo) hi = lo;
-  if (!isNum(v)) { setP(g, path, lo); log.push({ rule, path, from: v, to: lo }); return; }
-  const nv = clamp(v, lo, hi); if (Math.abs(nv - v) > 1e-9) { setP(g, path, nv); log.push({ rule, path, from: +v.toFixed(4), to: +nv.toFixed(4) }); }
-}
-function setLog(g, log, rule, path, val) { const v = getP(g, path); if (v !== val) { setP(g, path, val); log.push({ rule, path, from: v, to: val }); } }
-RULE('schema_bounds', 'Every trait inside schema bounds / enums; no NaN', (g, lm, log) => {
-  for (const p in SCHEMA) { const e = SCHEMA[p], v = getP(g, p);
-    if (e.t === 'n' || e.t === 'i') { if (!isNum(v)) { setLog(g, log, 'schema_bounds', p, e.def); continue; } clampLog(g, log, 'schema_bounds', p, e.min, e.max); if (e.t === 'i' && Math.round(getP(g, p)) !== getP(g, p)) setLog(g, log, 'schema_bounds', p, Math.round(getP(g, p))); }
-    else if (e.t === 's') { if (!e.opts.includes(v)) setLog(g, log, 'schema_bounds', p, e.def); }
-    else if (e.t === 'b') { if (typeof v !== 'boolean') setLog(g, log, 'schema_bounds', p, !!v); }
-    else if (e.t === 'hsl') { if (!Array.isArray(v) || v.length !== 3 || !v.every(isNum)) setLog(g, log, 'schema_bounds', p, e.def.slice()); else { const c2 = [((v[0] % 360) + 360) % 360, clamp(v[1], 0, 1), clamp(v[2], 0, 1)]; if (c2.some((x, i) => x !== v[i])) setLog(g, log, 'schema_bounds', p, c2); } } }
-});
-RULE('gape_head', 'Gape ≤ head height and ≤ 0.95 × body depth at mouth corner', (g, lm, log) => {
-  const bp = bodyProfile(g), hd = headDepth(g, bp), h = g.head.lengthFrac;
-  let gp = g.mouth.gape, it = 0;
-  while (it++ < 120 && gp > 0.05 && gp * hd > 0.95 * bp.depth(h * (0.12 + 0.6 * gp))) gp -= 0.01;
-  gp = Math.max(0.05, gp);
-  if (gp < g.mouth.gape - 1e-9) { log.push({ rule: 'gape_head', path: 'mouth.gape', from: +g.mouth.gape.toFixed(3), to: +gp.toFixed(3) }); g.mouth.gape = gp; }
-  if (g.mouth.type === 'beak' || g.mouth.type === 'tube') clampLog(g, log, 'gape_head', 'mouth.gape', 0.05, 0.25);
-});
-RULE('dorsal_range', 'Dorsal bases ordered, non-overlapping, inside their segment', (g, lm, log) => {
-  const d = g.fins.dorsal; clampLog(g, log, 'dorsal_range', 'fins.dorsal.u0', 0, 0.9); clampLog(g, log, 'dorsal_range', 'fins.dorsal.u1', d.u0 + 0.05, 1);
-  if (d.count >= 2) { if (d.u1 > .87) clampLog(g, log, 'dorsal_range', 'fins.dorsal.u1', d.u0 + .05, .87); clampLog(g, log, 'dorsal_range', 'fins.dorsal2.u0', d.u1 + .02, .93); clampLog(g, log, 'dorsal_range', 'fins.dorsal2.u1', g.fins.dorsal2.u0 + .03, d.count === 3 ? .88 : 1); }
-  if (d.count === 3) { clampLog(g, log, 'dorsal_range', 'fins.dorsal2.u1', g.fins.dorsal2.u0 + .03, .86); clampLog(g, log, 'dorsal_range', 'fins.dorsal3.u0', g.fins.dorsal2.u1 + .02, .95); clampLog(g, log, 'dorsal_range', 'fins.dorsal3.u1', g.fins.dorsal3.u0 + .025, 1); }
-  if (d.count === 0 && d.present) setLog(g, log, 'dorsal_range', 'fins.dorsal.present', false);
-});
-RULE('anal_range', 'Anal base ordered and inside [vent, peduncle]', (g, lm, log) => { clampLog(g, log, 'anal_range', 'fins.anal.u0', 0, 0.9); clampLog(g, log, 'anal_range', 'fins.anal.u1', g.fins.anal.u0 + 0.05, 1); });
-RULE('pectoral_base', 'Pectoral base ≤ 0.9 × local depth, behind operculum', (g, lm, log) => { clampLog(g, log, 'pectoral_base', 'fins.pectoral.baseLen', 0.03, 0.9); clampLog(g, log, 'pectoral_base', 'fins.pectoral.u', 0, 1); });
-RULE('pelvic_ventral', 'Pelvics use ventral landmarks; true eel clades lack pelvics', (g, lm, log) => { if (cladeTags(g.meta.clade).has('eelLike') && g.fins.pelvic.present) setLog(g, log, 'pelvic_ventral', 'fins.pelvic.present', false); });
-RULE('tail_swim_coherence', 'Caudal type consistent with swim mode', (g, lm, log) => { const ok = SWIM_TAILS[g.swim.mode] || CAUDAL_TYPES; if (g.fins.caudal.present && !ok.includes(g.fins.caudal.type)) setLog(g, log, 'tail_swim_coherence', 'fins.caudal.type', ok[0]); });
-RULE('caudal_aspect', 'Caudal aspect ratio bounded by its type', (g, lm, log) => { const ar = CAUDAL_AR[g.fins.caudal.type]; if (ar) clampLog(g, log, 'caudal_aspect', 'fins.caudal.aspect', ar[0], ar[1]); });
-RULE('caudal_len', 'Caudal length bounded by type', (g, lm, log) => { clampLog(g, log, 'caudal_len', 'fins.caudal.len', 0.03, caudalLenMax(g)); });
-RULE('caudal_vs_peduncle', 'Caudal span ≥ 1.1 × peduncle depth; peduncle compatible with tail', (g, lm, log) => {
-  const c2 = g.fins.caudal; if (!c2.present) return; const ped = bodyProfile(g).depth(0.999);
   const need = 1.1 * ped; if (c2.aspect * c2.len < need) { const ar = CAUDAL_AR[c2.type]; const a2 = Math.min(ar[1], need / c2.len); if (a2 > c2.aspect) setLog(g, log, 'caudal_vs_peduncle', 'fins.caudal.aspect', +a2.toFixed(3)); if (g.fins.caudal.aspect * c2.len < need) { const l2 = Math.min(caudalLenMax(g), need / g.fins.caudal.aspect); if (l2 > c2.len) setLog(g, log, 'caudal_vs_peduncle', 'fins.caudal.len', +l2.toFixed(3)); } if (g.fins.caudal.aspect * g.fins.caudal.len < need - 1e-6) { const ratio = (g.fins.caudal.aspect * g.fins.caudal.len) / need; clampLog(g, log, 'caudal_vs_peduncle', 'body.pedDepth', 0.03, Math.max(0.03, g.body.pedDepth * ratio * 0.98)); } }
   if (c2.type === 'lunate' || c2.type === 'forked') clampLog(g, log, 'caudal_vs_peduncle', 'body.pedDepth', 0.03, 0.35);
 });
@@ -241,3 +184,107 @@ function hueName(c2) { const [h, s, l] = c2; if (l < 0.14) return 'Black'; if (s
 function singular(n) { n = n.split(/ & | \/ |,/)[0].replace(/\s*\(.*\)/, '').replace(/^True /, '').trim(); if (/fishes$/.test(n)) return n.replace(/es$/, ''); if (/ies$/.test(n)) return n.replace(/ies$/, 'y'); if (/sses$/.test(n)) return n.replace(/es$/, ''); if (/s$/.test(n) && !/ss$/.test(n)) return n.replace(/s$/, ''); return n; }
 const SYL = ['ich', 'thy', 'os', 'ar', 'en', 'la', 'pto', 'mor', 'ne', 'ra', 'xi', 'do', 'gla', 'tri', 'on', 'ba', 'lo', 'cy', 'pha', 'sel', 'ko', 'ti'];
 const GEN_END = ['ichthys', 'gnathus', 'pterus', 'soma', 'cephalus', 'notus', 'urus', 'don'];
+// @@PART js/app.part08.js (8/19) lines 1262-1557 of the original module script -- stripped by build.mjs
+function nameFish(g, rng) {
+  if (g.meta.proc && g.meta.proc.name) { g.meta.name = g.meta.proc.name; g.meta.sci = g.meta.proc.sci + (g.meta.edited ? ' (edited)' : ''); return; }
+  if (g.meta.species) {
+    const sp = SPECIES.find(s => s.id === g.meta.species);
+    if (sp) {
+      const ad = g.meta.adapted && HABITATS[g.meta.adapted.to], adj = ad ? (HAB_ADJ[ad.id] || ad.n.toLowerCase()) : '';
+      g.meta.name = ad ? adj.charAt(0).toUpperCase() + adj.slice(1) + (g.meta.speculative ? '-inspired ' : '-adapted ') + sp.n.toLowerCase() : sp.n;
+      g.meta.sci = sp.sci + (g.meta.speculative ? ' / speculative concept, not a real population' : ad ? ' (authored habitat variant)' : '');
+      return;
+    }
+  }
+  const cl = CLADES[g.meta.clade]; const base = singular(cl.n).toLowerCase();
+  const adj = PATTERN_ADJ[g.skin.pattern] || hueName(g.skin.base);
+  g.meta.name = `${g.meta.novel ? 'Concept' : adj} ${HAB_ADJ[g.meta.habitat] || ''} ${base}`.replace(/\s+/g, ' ').trim();
+  const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+  g.meta.sci = cap(rng.pick(SYL) + rng.pick(SYL) + rng.pick(GEN_END)) + ' ' + rng.pick(SYL) + rng.pick(SYL) + rng.pick(['us', 'a', 'um', 'ensis', 'oides']) + (g.meta.novel ? ' (generated concept)' : g.meta.fantasy ? ' (fict.)' : ' (gen.)');
+  if (g.meta.evolution && g.meta.evolution.step > 0) {
+    const source = SPECIES.find(card => card.id === g.meta.parentSpecies);
+    g.meta.name = `Evolved ${source ? source.n.toLowerCase() : base} / step ${g.meta.evolution.step}`;
+    if (source) g.meta.sci = source.sci + ' / generated evolutionary variant';
+  }
+}
+function finalize(g, rng) {
+  if (!CLADES[g.meta.clade]) g.meta.clade = 'teleost'; if (!HABITATS[g.meta.habitat]) g.meta.habitat = 'coralReef';
+  const tags = new Set(cladeTags(g.meta.clade)); let ni = NICHES[g.meta.niche], hab = HABITATS[g.meta.habitat];
+  if (ni) { ni.tags.forEach(t => tags.add(t)); ni.ff.forEach(f => tags.add(f)); }
+  if (g.skin.electric) tags.add('electric'); if (g.skin.inflate) tags.add('inflate');
+  g.meta.tags = [...tags]; g.meta.fantasy = !!(hab && hab.fantasy) || !!(ni && ni.fantasy) || tags.has('fantasy');
+  if (!g.meta.repairs) g.meta.repairs = [];
+  repair(g);
+  ni = NICHES[g.meta.niche]; hab = HABITATS[g.meta.habitat];
+  const resolvedTags = new Set(cladeTags(g.meta.clade)); if (ni) { ni.tags.forEach(t => resolvedTags.add(t)); ni.ff.forEach(t => resolvedTags.add(t)); }
+  if (g.skin.electric) resolvedTags.add('electric'); if (g.skin.inflate) resolvedTags.add('inflate');
+  g.meta.tags = [...resolvedTags]; g.meta.fantasy = !!hab.fantasy || !!(ni && ni.fantasy) || resolvedTags.has('fantasy');
+  g.meta.speculative = !!(g.meta.adapted && (!cladeAllowed(g.meta.clade, hab) || hab.fantasy));
+  if (g.meta.adapted) { g.meta.adapted.to = g.meta.habitat; g.meta.adapted.speculative = g.meta.speculative; }
+  if (!g.meta.surfaceSeed) g.meta.surfaceSeed = g.meta.seed;
+  g.meta.version = FG.version; nameFish(g, rng || new RNG(g.meta.seed + ':name'));
+  g.meta.sizeClass = sizeClass(g.body.length); g.meta.metrics = metrics(g); g.meta.landmarks = landmarks(g);
+  return g;
+}
+/**
+ * Generate a validated genome.
+ * @param {{seed?:string,habitat?:string,niche?:string,clade?:string,species?:string,overrides?:Object,noSpecies?:boolean}} opts
+ */
+function generate(opts = {}) {
+  const seed = String(opts.seed != null && opts.seed !== '' ? opts.seed : Math.floor(Math.random() * 1e9).toString(36));
+  const rng = new RNG(`${seed}|${opts.habitat || ''}|${opts.niche || ''}|${opts.clade || ''}|${opts.species || ''}`);
+  let species = opts.species ? SPECIES.find(s => s.id === opts.species) : null;
+  let habId = opts.habitat && HABITATS[opts.habitat] ? opts.habitat : (species ? species.habitat : rng.pick(Object.keys(HABITATS).filter(h => !HABITATS[h].fantasy)));
+  let nicheId = opts.niche, cladeId = opts.clade;
+  if (species) { nicheId = opts.niche && NICHES[opts.niche] && cladeInNiche(species.clade, NICHES[opts.niche]) ? opts.niche : species.niche; cladeId = species.clade; }
+  const hab = HABITATS[habId];
+  if (!nicheId && cladeId && CLADES[cladeId]) {
+    const candidates = {};
+    for (const id in NICHES) if (cladeInNiche(cladeId, NICHES[id])) candidates[id] = hab.niches[id] || .08;
+    if (Object.keys(candidates).length) nicheId = rng.weighted(candidates);
+  }
+  if (!nicheId || !NICHES[nicheId]) {
+    const compatible = {};
+    for (const id in hab.niches) {
+      const niche = NICHES[id];
+      if (niche && Object.keys(niche.clades).some(clade => CLADES[clade] && cladeAllowed(clade, hab))) compatible[id] = hab.niches[id];
+    }
+    if (!Object.keys(compatible).length) throw new Error(`No viable niches in ${hab.n}`);
+    nicheId = rng.weighted(compatible);
+  }
+  const ni = NICHES[nicheId];
+  if (!cladeId || !CLADES[cladeId]) cladeId = pickClade(ni, hab, rng);
+  if (!species && !opts.noSpecies && rng.chance(0.35)) { const cands = SPECIES.filter(s => s.clade === cladeId && (s.habitat === habId || s.niche === nicheId)); if (cands.length) species = rng.pick(cands); }
+  const meta = { seed, surfaceSeed: seed, habitat: habId, niche: nicheId, clade: cladeId, species: species ? species.id : null };
+  const map = resolveTraitMap(meta);
+  const g = defaultGenome(); Object.assign(g.meta, meta);
+  sampleCorrelated(map, rng, g);
+  genPalette(g, rng, hab, ni, map);
+  if (species && habId !== species.habitat && !opts.noAdapt) adaptToHabitat(g, hab, species, rng, opts.niche);
+  if (opts.overrides) for (const p in opts.overrides) if (SCHEMA[p]) setP(g, p, opts.overrides[p]);
+  return finalize(g, rng);
+}
+/** Keep a reference species' body plan but adapt niche, colour, size and function-to-form to a different habitat. */
+function adaptToHabitat(g, hab, species, rng, preferredNiche) {
+  g.meta.adapted = { from: species.habitat, to: hab.id, speculative: !cladeAllowed(g.meta.clade, hab) || hab.fantasy };
+  const w = {}; for (const id in hab.niches) if (cladeInNiche(g.meta.clade, NICHES[id])) w[id] = hab.niches[id];
+  if (preferredNiche && NICHES[preferredNiche] && cladeInNiche(g.meta.clade, NICHES[preferredNiche])) g.meta.niche = preferredNiche;
+  else if (Object.keys(w).length) g.meta.niche = rng.weighted(w);
+  const ni = NICHES[g.meta.niche], ff = ni ? ni.ff : [];
+  const hr = rng.pick(hab.pal.h), targetH = rng.range(hr[0], hr[1]), sat = (hab.pal.s[0] + hab.pal.s[1]) / 2 * (ni ? ni.sat : 1);
+  for (const p of ['skin.base', 'skin.accent', 'skin.fin']) { const col = getP(g, p); const dh = ((targetH - col[0] + 540) % 360) - 180; col[0] = (col[0] + dh * .22 + 360) % 360; col[1] = lerp(col[1], clamp(sat, 0, 1), .2); }
+  if (hab.light < .15) { g.head.eyeSize = clamp(g.head.eyeSize * 1.25, .05, .55); g.skin.iridescence *= .4; g.skin.base[2] *= .65; if (hab.light < .05) g.skin.photophores = Math.max(g.skin.photophores, 12); }
+  if (ff.includes('maneuverer')) applyAdaptation(g, 'agility', .35, true);
+  if (ff.includes('fastSwimmer')) applyAdaptation(g, 'speed', .3, true);
+  if (ff.includes('crevice')) applyAdaptation(g, 'shelter', .4, true);
+  const pelagicBody = anatomyProfile(g).family === 'pelagic' || g.swim.mode === 'thunniform';
+  if ((ff.includes('camouflage') || ff.includes('ambusher')) && !pelagicBody) { if (g.skin.pattern === 'none') { g.skin.pattern = 'mottle'; g.skin.patternScale = Math.max(g.skin.patternScale, 1.4); } g.skin.patternStrength = clamp(Math.max(g.skin.patternStrength, .5), 0, .65); g.skin.iridescence = Math.min(g.skin.iridescence, .3); }
+  if (ff.includes('bottomDweller')) g.body.ventralFlat = Math.max(g.body.ventralFlat, .4);
+  if (['coralReef', 'rockyShore', 'mountainStream', 'cave', 'seagrass', 'blackwater'].includes(hab.id) && g.body.length > .5) g.body.length = Math.max(.35, g.body.length * .72);
+  if (hab.tags.includes('fresh') && !cladeReq(g.meta.clade).includes('fresh')) g.skin.iridescence *= .7;
+}
+/* ==================================================================
+   LINKED ADAPTATION MODULES: selection acts on whole functional units.
+   God Mode widens variation, never disables architecture or repair.
+   ================================================================== */
+const ADAPTATIONS = {

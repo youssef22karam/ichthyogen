@@ -1,78 +1,3 @@
-// @@PART js/app.part10.js (10/19) lines 1848-2150 of the original module script -- stripped by build.mjs
-function buildJawGeometry(bm) {
-  const NJ = 15, M = 16, pos = [], ab = [], idx = [], p = {}, fr = {}, s = {};
-  const u0 = Math.max(bm.jawStartU, .006), u1 = bm.hingeU || bm.mcU;
-  bm.frame(u1, fr); bm.section(u1, s);
-  const py = bm.mouthLineY(u1, s), pivot = { x: fr.px + fr.nx * py, y: fr.py + fr.ny * py };
-  for (let i = 0; i <= NJ; i++) {
-    const t = i / NJ, u = lerp(u0, u1, t);
-    bm.frame(u, fr); bm.section(u, s);
-    const ym = bm.mouthLineY(u, s), yr = ym > 0 ? s.dUp : s.dDn, n = ym > 0 ? s.nD : s.nV;
-    const rim = Math.asin(Math.sign(ym) * Math.pow(clamp(Math.abs(ym) / Math.max(yr, 1e-8), 0, .98), n * .5));
-    for (let j = 0; j <= M; j++) {
-      const a = lerp(-Math.PI - rim, rim, j / M);
-      bm.point(u, a, p, fr, s, true);
-      const fade = Math.sin(Math.PI * j / M) * Math.sin(Math.PI * t);
-      const off = bm.maxD * .004 * fade, length = Math.max(1e-8, Math.hypot(p.ly, p.lz));
-      pos.push(p.x + fr.nx * p.ly / length * off, p.y + fr.ny * p.ly / length * off, p.z + p.lz / length * off);
-      ab.push(u, ((a + Math.PI / 2) / TAU + 1) % 1, 0, 1 - sstep(.62, 1, t));
-    }
-  }
-  for (let i = 0; i < NJ; i++) for (let j = 0; j < M; j++) {
-    const a = i * (M + 1) + j, b = a + M + 1; idx.push(a, b, a + 1, a + 1, b, b + 1);
-  }
-  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('aBody', new THREE.Float32BufferAttribute(ab, 4)); geo.setIndex(idx); geo.computeVertexNormals();
-  const openAngle = Math.min(.24, Math.atan2(bm.g.mouth.gape * headDepth(bm.g, bm.bp) * bm.L * .42, Math.max(1e-5, (u1 - u0) * bm.L)));
-  return { geo, pivot, openAngle };
-}
-function skinAttributes(geo, bm, tag = 0, jaw = false) {
-  const pos = geo.getAttribute('position'), a = new Float32Array(pos.count * 4);
-  for (let i = 0; i < pos.count; i++) {
-    const u = clamp((bm.headX - pos.getX(i)) / bm.L, .003, .999);
-    const fr = {}; bm.frame(u, fr); const y = (pos.getX(i) - fr.px) * fr.nx + (pos.getY(i) - fr.py) * fr.ny;
-    a[i * 4] = u; a[i * 4 + 1] = ((Math.atan2(y, pos.getZ(i)) + Math.PI / 2) / TAU + 1) % 1;
-    a[i * 4 + 2] = tag; a[i * 4 + 3] = jaw ? 1 - sstep(Math.max(.004, bm.jawStartU) + (bm.mcU - Math.max(.004, bm.jawStartU)) * .85, bm.mcU, u) : 0;
-  }
-  geo.setAttribute('aBody', new THREE.BufferAttribute(a, 4)); return geo;
-}
-const GH = { THREE, clamp, lerp, sstep, smoother, TAU, skinAttributes, mergeGeos };
-/* mouth constructor (see mouthgeo.js): lip ring + capped cavity for jawed mouths; fused plate; underside sucker disc; tube cap; flattened-plan ventral slot */
-function buildMouthDetails(bm, mats) {
-  const M = bm.law.mouth;
-  if (bm.oralDisc) return MOUTH.buildDisc(bm, mats, GH, M);
-  if (bm.ventralMouth) return [...MOUTH.buildVentralMouth(bm, mats, GH), ...(bm.law.flat && bm.law.flat.spine ? MOUTH.buildTailSpine(bm, mats, GH) : [])];
-  return [...MOUTH.buildLips(bm, mats, GH, M), ...(M.construction === 'jawed' ? MOUTH.buildCavity(bm, mats, GH) : [])];
-}
-function buildGills(bm, mats) {
-  const g = bm.g, a = bm.a, pos = [], ab = [], idx = [], p = {}, q = {}; let nv = 0;
-  const slots = g.head.gillSlits || 1;
-  for (const side of [-1, 1]) for (let slot = 0; slot < slots; slot++) {
-    const isCover = a.gills === 'opercular', pores = a.gills === 'pores', ventral = a.gills === 'ventral';
-    const center = isCover ? bm.lm.operculum + .012 : lerp(bm.lm.gillStart, bm.lm.gillEnd, (slot + .5) / slots);
-    const N = pores ? 10 : 14, start = nv;
-    for (let j = 0; j <= N; j++) {
-      const t = j / N;
-      let theta = ventral ? -Math.PI / 2 + side * lerp(.06, .24, t) : lerp(-.78, .74, t) * g.head.gillHeight;
-      if (!ventral && side < 0) theta = Math.PI - theta;
-      const u = center + g.head.gillSlant * bm.h * .055 * Math.sin(Math.PI * t);
-      const width = bm.h * (pores ? .018 : .012) * Math.pow(Math.sin(Math.PI * t), .6);
-      for (let k = 0; k < 4; k++) {
-        const uu = u + (k - 1.5) * width;
-        bm.rawSurface(uu, theta, p); bm.frame(uu, q);
-        const norm = new THREE.Vector3(); bm.surfaceNormal(uu, theta, norm);
-        const lift = bm.maxD * (k === 0 ? .012 : .003);
-        pos.push(p.x + norm.x * lift, p.y + norm.y * lift, p.z + norm.z * lift);
-        ab.push(uu, ((theta + Math.PI / 2) / TAU + 1) % 1, k === 1 || k === 2 ? 6 : 7, Math.sin(Math.PI * t)); nv++;
-      }
-    }
-    for (let j = 0; j < N; j++) for (let k = 0; k < 3; k++) { const v = start + j * 4 + k; idx.push(v, v + 1, v + 4, v + 1, v + 5, v + 4); }
-  }
-  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('aBody', new THREE.Float32BufferAttribute(ab, 4)); geo.setIndex(idx); geo.computeVertexNormals();
-  const m = new THREE.Mesh(geo, mats.body); m.frustumCulled = false; return m;
-}
-/* fins: ray grid membranes merged into one geometry */
-function triArea(P, a, b, c2) { const ax = P[a * 3], ay = P[a * 3 + 1], az = P[a * 3 + 2]; const ux = P[b * 3] - ax, uy = P[b * 3 + 1] - ay, uz = P[b * 3 + 2] - az, vx = P[c2 * 3] - ax, vy = P[c2 * 3 + 1] - ay, vz = P[c2 * 3 + 2] - az; const cx = uy * vz - uz * vy, cy = uz * vx - ux * vz, cz = ux * vy - uy * vx; return 0.5 * Math.sqrt(cx * cx + cy * cy + cz * cz); }
-class FinBuilder {
   constructor() { this.pos = []; this.fin = []; this.fin2 = []; this.skin = []; this.base = []; this.idx = []; this.rays = []; this.areas = {}; this.nv = 0; this.bases = []; this.attachments = []; this.rootNormals = []; }
   add(sp) {
     const R = sp.R, K = sp.K, v0 = this.nv, faceSize = R * (K + 1), b = new THREE.Vector3(), edge = new THREE.Vector3(), root = new THREE.Vector3(), q = new THREE.Vector3(), normal = sp.normal.clone(), tips = []; let area = 0;
@@ -211,24 +136,32 @@ function mergeGeos(list) {
   for (const g of list) { const p = g.getAttribute('position'), n = g.getAttribute('normal'), ix = g.getIndex(); for (let i = 0; i < p.count; i++) { pos.push(p.getX(i), p.getY(i), p.getZ(i)); nor.push(n.getX(i), n.getY(i), n.getZ(i)); } if (ix) for (let i = 0; i < ix.count; i++) idx.push(ix.getX(i) + off); else for (let i = 0; i < p.count; i++) idx.push(i + off); off += p.count; g.dispose(); }
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); geo.setIndex(idx); return geo;
 }
+/* iris colour: the genome's palette eye colour pulled toward a metallic variant (gold / copper / olive / dark) chosen by niche + depth */
+function irisColor(g, EL) {
+  const set = EL.irisSet, pick = set[cyrb128(String(g.meta.seed || 'iris') + 'iris')[0] % set.length];
+  const V = { gold: [44, .78, .50], copper: [22, .72, .40], olive: [68, .50, .34], dark: [28, .45, .13] }[pick];
+  return hslCol(g.skin.eye).lerp(hslCol(V), .7);
+}
 function buildEyes(bm, seg, mats) {
   const g = bm.g, out = []; if (g.head.eyeSide === 'none') return out; const fr = {}, s = {}; const u = bm.lm.eye; bm.frame(u, fr); bm.section(u, s);
   const y = bm.eyeY; const list = g.head.eyeSide === 'both' ? [[1, y, u], [-1, y, u]] : g.head.eyeSide === 'left' ? [[1, y, u], [1, Math.max(-s.dDn * .5, y - bm.eyeR * 1.9), u + .018]] : [[-1, y, u], [-1, Math.max(-s.dDn * .5, y - bm.eyeR * 1.9), u + .018]];
+  const EL = bm.law.eye, ray = ['ray', 'benthicShark'].includes(bm.a.family), specs = [], opaque = [], glass = [], skin = [], infos = [];
   for (const [side, yy, uu] of list) {
     bm.frame(uu, fr); bm.section(uu, s);
-    const ray = ['ray', 'benthicShark'].includes(bm.a.family), yn = yy > 0 ? s.nD : s.nV, yr = yy > 0 ? s.dUp : s.dDn;
+    const yn = yy > 0 ? s.nD : s.nV, yr = yy > 0 ? s.dUp : s.dDn;
     const th = ray ? Math.acos(clamp(Math.pow(s.coreW * .8 / Math.max(1e-8, s.w), s.n / 2), 0, 1))
       : Math.asin(Math.sign(yy) * Math.pow(clamp(Math.abs(yy) / Math.max(1e-8, yr), 0, .9), yn / 2));
     const theta = side > 0 ? th : Math.PI - th, surface = {}, axis = new THREE.Vector3();
     bm.rawSurface(uu, theta, surface); bm.surfaceNormal(uu, theta, axis);
-    axis.add(new THREE.Vector3(-fr.tx * g.head.eyeForward * .16, 0, 0)).normalize();
-    const center = new THREE.Vector3(surface.x, surface.y, surface.z).addScaledVector(axis, -bm.eyeR * .53);
-    const EL = bm.law.eye, geo = new THREE.SphereGeometry(bm.eyeR, seg, Math.max(5, Math.round(seg * .65))); geo.scale(1, 1, EL.vestigial ? .62 : .8); geo.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), axis)); geo.translate(center.x, center.y, center.z);
-    /* eye law: a seated sphere (protrusion ≤ 1/3 diameter) carrying iris + pupil; at the lightless extreme the orbit is skin-covered */
-    if (EL.vestigial) skinAttributes(geo, bm);
-    const m = new THREE.Mesh(geo, EL.vestigial ? mats.body : mats.eye(axis, bm.eyeR, EL.pupilId)); m.frustumCulled = false; out.push(m);
-    if (seg > 8 && !ray && !EL.vestigial) {
-      const pts = [], p = {}, section = {}, frame = {}, radius = bm.eyeR * .75;
+    axis.add(new THREE.Vector3(-fr.tx * Math.max(g.head.eyeForward, EL.forwardMin) * .16, 0, 0)).normalize();
+    /* seated: the sphere centre lies EYE_SEAT radii under the skin, so the dome protrudes (1 - EYE_SEAT) / 2 of the diameter */
+    const center = new THREE.Vector3(surface.x, surface.y, surface.z).addScaledVector(axis, -bm.eyeR * LAW.EYE_SEAT);
+    const spec = { side, center, axis, R: bm.eyeR, forward: new THREE.Vector3(-fr.tx, -fr.ty, 0), up: new THREE.Vector3(fr.nx, fr.ny, 0), u: uu, surface: new THREE.Vector3(surface.x, surface.y, surface.z) };
+    specs.push(spec);
+    if (EL.vestigial) { skin.push(EYE.buildVestigial(THREE, spec, seg)); infos.push({ center: center.clone(), axis: axis.clone(), R: bm.eyeR, protrusion: (1 - LAW.EYE_SEAT) / 2, vestigial: true, pupil: 'none', covers: {} }); continue; }
+    const organ = EYE.buildOrgan(THREE, spec, EL, seg); opaque.push(...organ.opaque); glass.push(...organ.glass); infos.push(organ.info);
+    if (seg > 8 && !ray) {
+      const pts = [], p = {}, section = {}, frame = {}, radius = bm.eyeR * (Math.sqrt(1 - LAW.EYE_SEAT * LAW.EYE_SEAT) + .06);
       // The orbital edge follows the head surface instead of a floating torus.
       for (let j = 0; j < 32; j++) {
         const a = j / 32 * TAU, eyeU = clamp(uu + Math.cos(a) * radius / bm.L, .009, bm.h * .94);
@@ -237,11 +170,16 @@ function buildEyes(bm, seg, mats) {
         const t = Math.asin(Math.sign(ly) * Math.pow(clamp(Math.abs(ly) / Math.max(max, 1e-8), 0, .95), n / 2));
         bm.rawSurface(eyeU, side > 0 ? t : Math.PI - t, p); pts.push(new THREE.Vector3(p.x, p.y, p.z));
       }
-      const rim = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, true, 'centripetal'), 32, bm.eyeR * .035, 4, true);
+      const rim = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, true, 'centripetal'), 32, bm.eyeR * .05, 4, true);
       skinAttributes(rim, bm);
-      const socket = new THREE.Mesh(rim, mats.body); socket.frustumCulled = false; out.push(socket);
+      const socket = new THREE.Mesh(rim, mats.body); socket.frustumCulled = false; socket.userData.socket = true; out.push(socket);
     }
   }
+  bm.eyes = infos;
+  const eyeCol = irisColor(g, EL);
+  if (opaque.length) { const m = new THREE.Mesh(EYE.mergeParts(THREE, opaque), mats.eyeOrgan(false, eyeCol, specs[0].axis)); m.frustumCulled = false; m.userData.eyeball = true; m.userData.eyes = infos; out.push(m); }
+  if (glass.length) { const m = new THREE.Mesh(EYE.mergeParts(THREE, glass), mats.eyeOrgan(true, eyeCol, specs[0].axis)); m.frustumCulled = false; m.renderOrder = 3; m.userData.eyeGlass = true; out.push(m); }
+  if (skin.length) { const geo = mergeGeos(skin); skinAttributes(geo, bm); const m = new THREE.Mesh(geo, mats.body); m.frustumCulled = false; m.userData.eyeball = true; m.userData.eyes = infos; out.push(m); }
   return out;
 }
 function buildNostrils(bm, mats) {
@@ -259,23 +197,73 @@ function buildNostrils(bm, mats) {
   const geo = mergeGeos(geos); skinAttributes(geo, bm, 6); const mesh = new THREE.Mesh(geo, mats.body); mesh.frustumCulled = false; return mesh;
 }
 function buildTeeth(bm, mats) {
-  const g = bm.g, m = g.mouth; if (m.teethCount <= 0 || m.teeth === 'none') return null; const T = TEETH[m.teeth] || TEETH.villiform; const count = Math.min(90, m.teethCount), nUp = Math.ceil(count / 2), nDn = count - nUp, hd = headDepth(g, bm.bp) * bm.L;
+  const g = bm.g, m = g.mouth; if (m.teethCount <= 0 || m.teeth === 'none') return null; const T = TEETH[m.teeth] || TEETH.villiform, rows = bm.law.mouth.teethRows || 1; const count = Math.min(90, m.teethCount), nUp = Math.ceil(count / 2), nDn = count - nUp, hd = headDepth(g, bm.bp) * bm.L;
   const cone = new THREE.ConeGeometry(1, 1, m.teeth === 'triangular' ? 3 : m.teeth === 'molar' || m.teeth === 'beak' ? 8 : 5, 1); cone.translate(0, 0.5, 0);
   const inst = new THREE.InstancedMesh(cone, mats.tooth, count); const aJaw = new Float32Array(count); const fr = {}, s = {}, M = new THREE.Matrix4(), P = new THREE.Vector3(), Q = new THREE.Quaternion(), Sc = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0), D = new THREE.Vector3(); let k = 0;
   const u0 = Math.max(bm.jawStartU, 0.03 * bm.mcU) + 0.03 * bm.mcU, u1 = 0.92 * bm.mcU;
-  for (const [n, lower] of [[nUp, 0], [nDn, 1]]) { const nn = Math.max(1, Math.ceil(n / 2)); for (let i = 0; i < n; i++) { const side = i % 2 ? 1 : -1, frac = (Math.floor(i / 2) + 0.5) / nn, u = lerp(u0, u1, frac); bm.frame(u, fr); bm.section(u, s); const ym = bm.mouthLineY(u, s); const len = Math.min(T.len * hd * (m.teeth === 'fang' ? 1.4 - 0.8 * frac : 1), (s.dUp + s.dDn) * .3), rad = Math.min(T.r * hd, len * .45);
+  for (const [n, lower] of [[nUp, 0], [nDn, 1]]) { const nn = Math.max(1, Math.ceil(n / 2)); for (let i = 0; i < n; i++) { const side = i % 2 ? 1 : -1, frac = (Math.floor(i / 2) + 0.5) / nn, row = rows > 1 && Math.floor(i / 2) % 2 ? 1 : 0, u = lerp(u0, u1, frac);   /* multiple staggered rows where the niche implies (comb / crushing classes) */ bm.frame(u, fr); bm.section(u, s); const ym = bm.mouthLineY(u, s); const len = Math.min(T.len * hd * (m.teeth === 'fang' ? 1.4 - 0.8 * frac : 1) * (1 - .15 * row), (s.dUp + s.dDn) * .3), rad = Math.min(T.r * hd, len * .45);
     /* tooth root on the inner jaw margin: inside the local section at the root's own height */
-    const y = clamp(ym + (lower ? -.12 : .12) * len, -s.dDn * .94, s.dUp * .94), zr = bm.halfWidthAtY(s, y) * 0.8, x = fr.px + fr.nx * y; P.set(x, fr.py + fr.ny * y, side * zr); D.set(fr.nx - .12, fr.ny, -side * .12).normalize().multiplyScalar(lower ? 1 : -1); Q.setFromUnitVectors(up, D); Sc.set(rad, len, m.teeth === 'triangular' ? rad * .18 : rad); M.compose(P, Q, Sc); inst.setMatrixAt(k, M); aJaw[k] = lower * (1 - sstep(Math.max(.004, bm.jawStartU) + (bm.mcU - Math.max(.004, bm.jawStartU)) * .85, bm.mcU, u)); k++; } }
+    const y = clamp(ym + (lower ? -.12 : .12) * len, -s.dDn * .94, s.dUp * .94), zr = bm.halfWidthAtY(s, y) * (0.66 - .16 * row), x = fr.px + fr.nx * y; P.set(x, fr.py + fr.ny * y, side * zr); D.set(fr.nx - .12, fr.ny, -side * .12).normalize().multiplyScalar(lower ? 1 : -1); Q.setFromUnitVectors(up, D); Sc.set(rad, len, m.teeth === 'triangular' ? rad * .18 : rad); M.compose(P, Q, Sc); inst.setMatrixAt(k, M); aJaw[k] = lower * (1 - sstep(Math.max(.004, bm.jawStartU) + (bm.mcU - Math.max(.004, bm.jawStartU)) * .85, bm.mcU, u)); k++; } }
   cone.setAttribute('aJaw', new THREE.InstancedBufferAttribute(aJaw, 1)); inst.frustumCulled = false; inst.instanceMatrix.needsUpdate = true; return inst;
 }
-function buildBarbels(bm, mats) {
-  const g = bm.g, n = g.head.barbels; if (!n) return null; const len = g.head.barbelLen * bm.h * bm.L, fr = {}, s = {}, geos = [], r = Math.max(0.0008, bm.maxD * 0.012);
-  const spots = []; const mc = bm.mcU; bm.frame(mc, fr); bm.section(mc, s); const ym = bm.mouthLineY(mc, s), zr = bm.halfWidthAtY(s, ym);
-  if (n % 2) spots.push([mc * 0.8, -s.dDn * 0.9, 0, 0, -1.2]);
-  const pairs = Math.floor(n / 2); const defs = [[mc, ym - 0.02 * bm.maxD, zr * 0.95, 0.5, -0.6], [mc * 0.55, -s.dDn * 0.9, zr * 0.45, 0.2, -1.2], [bm.h * 0.15, s.dUp * 0.45, zr * 0.6, 0.8, 0.3], [mc * 0.75, -s.dDn * 0.9, zr * 0.8, 0.1, -1.3]];
-  for (let i = 0; i < pairs && i < defs.length; i++) { const d = defs[i]; spots.push([d[0], d[1], d[2], d[3], d[4]]); spots.push([d[0], d[1], -d[2], d[3], d[4]]); }
-  for (const [u, ly, lz, fwd, dn] of spots) { bm.frame(u, fr); const p0 = new THREE.Vector3(fr.px + fr.nx * ly, fr.py + fr.ny * ly, lz); const dir = new THREE.Vector3(-fr.tx * fwd + fr.tx * (1 - fwd) * 0.6, dn * 0.5, Math.sign(lz) * 0.5).normalize();
-    const p1 = p0.clone().addScaledVector(dir, len * 0.45).add(new THREE.Vector3(0, -len * 0.1, 0)), p2 = p0.clone().addScaledVector(dir, len * 0.9).add(new THREE.Vector3(len * 0.1, -len * 0.35, 0));
-    geos.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([p0, p1, p2]), 6, r, 4, false)); if (geos.length === 1) bm.barbelTip = p2; }
-  const mesh = new THREE.Mesh(mergeGeos(geos), mats.simple); mesh.frustumCulled = false; return mesh;
+/* barbels: rooted, tapered, capped strands (appendages.js); stations and lengths come from the barbel law */
+function buildBarbels(bm, mats) { return APP.buildBarbels(bm, mats, GH); }
+// @@PART js/app.part11.js (11/19) lines 2151-2428 of the original module script -- stripped by build.mjs
+function buildSpecials(bm, mats) {
+  const g = bm.g, sp = g.head.special, L = bm.L, out = [], fr = {}, s = {};
+  if (sp === 'none' || sp === 'horns' || bm.billStart !== null) return out;
+  const add = (geo, mat) => { const m = new THREE.Mesh(geo, mat); m.frustumCulled = false; out.push(m); return m; };
+  bm.frame(0.003, fr); bm.section(0.03, s); const snX = fr.px, snY = fr.py;
+  const loftSpike = (uBase, len, taperY, taperZ, droop, widen) => {
+    /* base ring sampled ON the skin at uBase → the junction is vertex-coincident with the body, no seam */
+    const M = 18, N = 14, ring = [], pos = [], idx = [], p = {}, frB = {}; bm.frame(uBase, frB);
+    let cy = 0, cz = 0;
+    for (let j = 0; j < M; j++) { bm.rawSurface(uBase, -Math.PI / 2 + j / M * TAU, p); ring.push([p.x, p.y, p.z]); cy += p.y / M; cz += p.z / M; }
+    const fwdX = -frB.tx, fwdY = -frB.ty, tipX = frB.px + fwdX * len, tipY = cy + fwdY * len - droop * len;
+    for (let i = 0; i <= N; i++) {
+      const f = i / N, ease = Math.pow(f, .9), shrink = Math.pow(1 - f, .9) * (1 - f * .15) + .02;
+      const axX = lerp(frB.px, tipX, ease), axY = lerp(cy, tipY, ease) - droop * len * f * f;
+      for (let j = 0; j < M; j++) {
+        const [bx, by, bz] = ring[j];
+        const sy = shrink * lerp(1, taperY, f), szf = shrink * lerp(1, taperZ, f) * (1 + widen * Math.sin(Math.PI * f) * .6);
+        pos.push(i === 0 ? bx : axX, i === 0 ? by : axY + (by - cy) * sy, i === 0 ? bz : (bz - cz) * szf + cz);
+      }
+    }
+    for (let i = 0; i < N; i++) for (let j = 0; j < M; j++) { const a = i * M + j, b = i * M + (j + 1) % M, c = a + M, d = b + M; idx.push(a, b, c, b, d, c); }
+    const tip = pos.length / 3; pos.push(tipX + fwdX * len * .015, tipY, 0);
+    for (let j = 0; j < M; j++) idx.push(tip, N * M + j, N * M + (j + 1) % M);
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals(); skinAttributes(geo, bm); return geo;
+  };
+  if (sp === 'bill' || sp === 'sword') { add(loftSpike(.006, g.head.specialLen * L, sp === 'sword' ? .3 : .55, sp === 'sword' ? 1.1 : .6, .05, 0), mats.body); }
+  else if (sp === 'rostrum' || sp === 'paddle') { const len = g.head.specialLen * L, w = g.head.specialWidth * L * (sp === 'paddle' ? 2 : 1); add(loftSpike(.008, len, sp === 'paddle' ? .22 : .14, Math.max(.6, w / Math.max(.001, bm.bp.width(.06) * L)), .01, sp === 'paddle' ? .5 : .15), mats.body);
+    if (sp === 'rostrum') { const n = Math.max(6, Math.floor(len / (0.03 * L))), cone = new THREE.ConeGeometry(1, 1, 4, 1); cone.translate(0, 0.5, 0); const inst = new THREE.InstancedMesh(cone, mats.tooth, n * 2); const M = new THREE.Matrix4(), P = new THREE.Vector3(), Q = new THREE.Quaternion(), Sc = new THREE.Vector3(0.004 * L, 0.03 * L, 0.004 * L), up = new THREE.Vector3(0, 1, 0); let k = 0;
+      for (let i = 0; i < n; i++) for (const side of [1, -1]) { P.set(snX + len * 0.05 + (i + 0.5) / n * len * 0.85, snY, side * w * 0.5); Q.setFromUnitVectors(up, new THREE.Vector3(0, 0, side)); M.compose(P, Q, Sc); inst.setMatrixAt(k++, M); }
+      cone.setAttribute('aJaw', new THREE.InstancedBufferAttribute(new Float32Array(n * 2), 1)); inst.frustumCulled = false; out.push(inst); } }
+  else if (sp === 'esca') { for (const m of APP.buildLure(bm, mats, GH)) { out.push(m); } }
+  else if (sp === 'whip') { for (const m of APP.buildWhip(bm, mats, GH)) out.push(m); }
+  return out;
 }
+function landmarks3D(bm) { const lm = bm.lm, p = {}, out = []; const spec = { snout: [0.004, 0], mouthCorner: [lm.mouthCorner, 'm'], eye: [lm.eye, 'e'], preopercle: [lm.preopercle, 0], operculum: [lm.operculum, 0], pectoralBase: [lm.pectoralBase, 0], pelvicBase: [lm.pelvicBase, -Math.PI / 2], vent: [lm.vent, -Math.PI / 2], analOrigin: [lm.analOrigin, -Math.PI / 2], analEnd: [lm.analEnd, -Math.PI / 2], dorsalOrigin: [lm.dorsalOrigin, Math.PI / 2], dorsalEnd: [lm.dorsalEnd, Math.PI / 2], peduncleStart: [lm.peduncleStart, Math.PI / 2], caudalBase: [0.999, Math.PI / 2] };
+  const fr = {}, s = {}; for (const k in spec) { const [u, th] = spec[k]; if (th === 'm') { bm.frame(u, fr); bm.section(u, s); const ym = bm.mouthLineY(u, s); out.push({ name: k, x: fr.px + fr.nx * ym, y: fr.py + fr.ny * ym, z: bm.halfWidthAtY(s, ym) }); } else if (th === 'e') { bm.frame(u, fr); bm.section(u, s); out.push({ name: k, x: fr.px + fr.nx * bm.eyeY, y: fr.py + fr.ny * bm.eyeY, z: bm.halfWidthAtY(s, bm.eyeY) }); } else { bm.surface(u, th, p); out.push({ name: k, x: p.x, y: p.y, z: p.z }); } } return out; }
+/**
+ * Build a renderable fish from a genome.
+ * @returns {{group:THREE.Group, uniforms:Object, materials:Object, bm:BodyModel, info:Object, dispose:()=>void}}
+ */
+function buildFish(g, opts = {}) {
+  const q = QUALITY[opts.quality || 'hero'], bm = new BodyModel(g), f = g.fins, lm = bm.lm, maxD = bm.maxD; const geos = [];
+  bm.lod = !q.detail;
+  const bodyGeo = buildBodyGeometry(bm, q.S, q.R); geos.push(bodyGeo);
+  const uni = makeUniforms(g, bm), mats = makeMaterials(g, uni, !!opts.instanced);
+  uni.uDetail.value = q.detail ? 1 : 0;
+  const group = new THREE.Group(); let tris = bodyGeo.index.count / 3; const parts = {};
+  const body = opts.instanced ? new THREE.InstancedMesh(bodyGeo, mats.body, opts.instanced) : new THREE.Mesh(bodyGeo, mats.body); body.frustumCulled = false; group.add(body); parts.body = body;
+  const fb = new FinBuilder(); const rc = n => q.detail ? clamp(Math.round(n), 8, 40) : 5; const sf = d => d.spines / Math.max(1, d.spines + d.rays);
+  if (f.dorsal.present && f.dorsal.count > 0) {
+    if (bm.a.separatedDorsal) {
+      const n = q.detail ? clamp(f.dorsal.spines, 6, 16) : 5;
+      for (let i = 0; i < n; i++) { const s = lerp(lm.dorsalOrigin, lm.dorsalEnd, i / n), e = lerp(lm.dorsalOrigin, lm.dorsalEnd, (i + .65) / n); addRidgeFin(fb, bm, { u0: s, u1: e, height: f.dorsal.height * maxD, sweep: .4, shape: 'triangle', side: 1, rays: 5, spineFrac: .2, opacity: 1, flex: .25, kind: 'dorsal', kindId: 1, K: q.detail ? 3 : 1 }); }
+    } else addRidgeFin(fb, bm, { u0: lm.dorsalOrigin, u1: lm.dorsalEnd, height: f.dorsal.height * maxD, sweep: f.dorsal.sweep, shape: f.dorsal.shape, side: 1, rays: rc(f.dorsal.spines + f.dorsal.rays), spineFrac: sf(f.dorsal), opacity: f.dorsal.opacity, flex: f.dorsal.flex, kind: 'dorsal', kindId: 1, K: q.K });
+    if (f.dorsal.count >= 2) addRidgeFin(fb, bm, { u0: lm.dorsal2Origin, u1: lm.dorsal2End, height: f.dorsal2.height * maxD, sweep: f.dorsal.sweep, shape: f.dorsal2.shape, side: 1, rays: rc(f.dorsal2.spines + f.dorsal2.rays), spineFrac: sf(f.dorsal2), opacity: f.dorsal.opacity, flex: f.dorsal.flex, kind: 'dorsal', cfg: 'dorsal2', kindId: 1, K: q.K });
+    if (f.dorsal.count === 3) addRidgeFin(fb, bm, { u0: lm.dorsal3Origin, u1: lm.dorsal3End, height: f.dorsal3.height * maxD, sweep: .2, shape: f.dorsal3.shape, side: 1, rays: rc(f.dorsal3.rays), spineFrac: 0, opacity: f.dorsal.opacity, flex: f.dorsal.flex, kind: 'dorsal', cfg: 'dorsal3', kindId: 1, K: q.K });
+  }
+  if (f.anal.present) addRidgeFin(fb, bm, { u0: lm.analOrigin, u1: lm.analEnd, height: f.anal.height * maxD, sweep: f.anal.sweep, shape: f.anal.shape, side: -1, rays: rc(f.anal.spines + f.anal.rays), spineFrac: sf(f.anal), opacity: f.anal.opacity, flex: f.anal.flex, kind: 'anal', kindId: 2, K: q.K });

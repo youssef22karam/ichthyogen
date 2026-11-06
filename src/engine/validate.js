@@ -3,7 +3,7 @@
    examined with the engine's analytic BodyModel — NO mesh is built before both stages pass. */
 import { AX_KEYS, DISC_KEYS, PALETTES, envelope, CLADES, SIZE_BANDS } from './clades.js';
 import { traitsToParams } from './mapping.js';
-import { assertLaws, finLaw, EYE_PROTRUSION_MAX, CAVITY_MAX } from './laws.js';
+import { assertLaws, finLaw, EYE_PROTRUSION_MAX, EYE_PROTRUSION, EYE_SEAT, CAVITY_MAX } from './laws.js';
 
 export const INVARIANTS = ['symmetry', 'eyes', 'appendages', 'fins', 'mouth_gills', 'profile', 'colour', 'envelope', 'tail', 'plan'];
 export const EYE_BAND = [.03, .15];                 /* eye diameter / head length */
@@ -85,7 +85,7 @@ export function checkEngine(t, g, FG) {
   /* ── global anatomy laws (laws.js): every rule is a function of plan / niche / swim / depth axes ── */
   const ax = FG.axesOf(g), whip = ax.plan.flat >= 1, FL = finLaw(ax);
   for (const x of assertLaws(g, ax, lm, FG.metrics)) F.push(x);
-  const protrusion = (.8 - .53 + .14) / 2;                                   /* exposed dome / diameter from the eye construction */
+  const protrusion = EYE_PROTRUSION;                                          /* exposed dome / diameter from the eye construction */
   if (protrusion > EYE_PROTRUSION_MAX) fail('eyes', 'eye protrudes more than a third of its diameter');
   if (!(bm.hingeU >= lm.mouthCorner - EPS) || bm.hingeU > g.head.lengthFrac * g.head.gillStart + EPS) fail('mouth_gills', 'jaw hinge not between mouth corner and gill opening');
   if (bm.hingeU + EPS < Math.min(lm.eye, g.head.lengthFrac * g.head.gillStart - .006)) fail('mouth_gills', 'jaw hinge in front of the eye line');
@@ -103,7 +103,7 @@ export function checkEngine(t, g, FG) {
     const th = flatBody ? Math.acos(clampf(Math.pow(s.coreW * .8 / Math.max(1e-8, s.w), s.n / 2), 0, 1)) : Math.asin(Math.sign(yy) * Math.pow(clampf(Math.abs(yy) / Math.max(1e-8, yr), 0, .9), yn / 2));
     const theta = side > 0 ? th : Math.PI - th, surf = {}, ax = new FG.THREE.Vector3();
     bm.rawSurface(uu, theta, surf); bm.surfaceNormal(uu, theta, ax);
-    const c = { x: surf.x - ax.x * bm.eyeR * .53, y: surf.y - ax.y * bm.eyeR * .53, z: surf.z - ax.z * bm.eyeR * .53 };
+    const c = { x: surf.x - ax.x * bm.eyeR * EYE_SEAT, y: surf.y - ax.y * bm.eyeR * EYE_SEAT, z: surf.z - ax.z * bm.eyeR * EYE_SEAT };
     eyes.push({ side, u: uu, c, surf });
     if (!insideSection(bm, c.x, c.y, c.z, uu)) fail('eyes', 'eye centre is not embedded in the head');
     if (uu - bm.eyeR / L < .004 || uu + bm.eyeR / L > lm.operculum * .98) fail('eyes', 'eye extends off the head');

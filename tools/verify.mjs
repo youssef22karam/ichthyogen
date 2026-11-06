@@ -70,7 +70,7 @@ for (let i = 0; i < COH; i++) {
   /* real geometry audit: build the mesh, check symmetry / root attachment / budget / unrepaired constraints */
   const tb = performance.now(); let fish = null, geo = { errors: ['build failed'] };
   try { fish = FG.buildFish(f.genome, { quality: 'med' }); times.push(performance.now() - tb); geo = FG.checkFishGeometry(fish); } catch (e) { geo = { errors: ['build threw ' + e.message] }; }
-  const eyeMeshes = fish ? fish.group.children.filter(m => m.isMesh && m.material && m.material.uniforms && m.material.uniforms.uEyeAxis).length : -1;
+  const eyeMeshes = fish ? fish.group.children.filter(m => m.userData && m.userData.eyeball).length : -1;
   if (fish) fish.dispose();
   if (!geo.errors.length) geoOk++;
   if (rep.ok && !geo.errors.length) all++; else bad.push(`${f.seed} ${f.lineage} ${[...rep.failures.map(x => x.msg), ...geo.errors].slice(0, 2).join(' | ')}`);

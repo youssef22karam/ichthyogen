@@ -1,5 +1,6 @@
-/* MOUTH CONSTRUCTOR — one assembly for every creature: upper jaw, lower jaw hinged behind the eye line, a continuous
-   lip ring of real thickness, and an interior cavity that TERMINATES in a throat cap with a floor. Special constructions
+/* MOUTH CONSTRUCTOR — one assembly for every creature. The mouth is a SEAM in the head surface (lips meet, resting opening = 0) plus a hinged
+   lower jaw (and a sliding upper jaw where the niche protrudes); there is NO lip ring/tube/torus. The layered interior (inner walls capped at the
+   throat, tongue floor mass, first gill arches) only shows when the jaw opens. Special constructions
    (fused plate, underside sucker disc, short tube cap, flattened-plan ventral slot) come from the mouth law only.
    H = { THREE, clamp, lerp, sstep, smoother, TAU, skinAttributes, mergeGeos }. */
 import { CAVITY_MAX, DISC_DEPTH_MAX } from './laws.js';
@@ -23,19 +24,23 @@ function skinPoint(bm, u, vert, side, out, lift = 0) {
 }
 const jawWeight = (bm, u, H) => 1 - H.sstep(Math.max(.004, bm.jawStartU) + (bm.mcU - Math.max(.004, bm.jawStartU)) * .85, bm.mcU, u);
 
-/** Lip ring: two tubes (upper lip static, lower lip hinged with the jaw) following the mouth line from corner to corner. */
-export function buildLips(bm, mats, H, M) {
-  const { THREE } = H, g = bm.g, u0 = Math.max(bm.jawStartU, .006), u1 = bm.mcU, K = 14, out = [];
-  const fused = M.construction === 'fused';
-  const r = bm.maxD * (.011 + .02 * g.mouth.lips) * H.clamp(bm.h / .27, .6, 1.4) * (fused ? 1.7 : 1);
-  const lipOff = .035 + .03 * g.mouth.lips;
+/** Fused-plate (beak) mouths only: two thin plate RIBBONS lying in the head surface along the seam (upper static, lower with the jaw). No tube, no ring. */
+export function buildBeak(bm, mats, H, M) {
+  const { THREE } = H, g = bm.g, u0 = Math.max(bm.jawStartU, .006), u1 = bm.mcU, K = 16, out = [];
+  const w = .05 + .05 * g.mouth.lips;
   for (const [sign, lower] of [[1, false], [-1, true]]) {
-    const pts = [];
-    for (let i = 0; i <= K; i++) { const u = H.lerp(u1, u0, i / K); pts.push(skinPoint(bm, u, mouthLevel(bm, u, H) + sign * lipOff, 1, new THREE.Vector3(), r * .35)); }
-    for (let i = 1; i <= K; i++) { const u = H.lerp(u0, u1, i / K); pts.push(skinPoint(bm, u, mouthLevel(bm, u, H) + sign * lipOff, -1, new THREE.Vector3(), r * .35)); }
-    const geo = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, false, 'centripetal'), 2 * K + 4, r, 6, false);
-    H.skinAttributes(geo, bm, fused ? 0 : 0, lower && !fused);
-    const mesh = new THREE.Mesh(geo, fused ? mats.tooth : lower ? mats.jaw : mats.body); mesh.frustumCulled = false; out.push(mesh);
+    const pos = [], idx = [], rows = 2 * K + 1, cols = 4, v = new THREE.Vector3();
+    for (let i = 0; i < rows; i++) {
+      const side = i <= K ? 1 : -1, k = i <= K ? K - i : i - K - 1 + 1, u = H.lerp(u1, u0, (i <= K ? i : 2 * K - i) / K);
+      for (let j = 0; j <= cols; j++) {
+        const f = j / cols, lift = bm.maxD * .007 * Math.sin(Math.PI * f) * Math.sin(Math.PI * (.08 + .84 * (i / (rows - 1))));
+        skinPoint(bm, u, mouthLevel(bm, u, H) + sign * (.004 + w * f), side, v, lift); pos.push(v.x, v.y, v.z);
+      }
+    }
+    for (let i = 0; i < rows - 1; i++) for (let j = 0; j < cols; j++) { const a = i * (cols + 1) + j, b = a + cols + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals();
+    H.skinAttributes(geo, bm, 0, lower);
+    const mesh = new THREE.Mesh(geo, mats.tooth); mesh.frustumCulled = false; mesh.userData.beak = true; out.push(mesh);
   }
   return out;
 }
@@ -79,6 +84,44 @@ export function buildCavity(bm, mats, H) {
   for (let j = 0; j < Mr; j++) idx.push(N * Mr + j, centre, N * Mr + (j + 1) % Mr);
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('aBody', new THREE.Float32BufferAttribute(ab, 4)); geo.setIndex(idx); geo.computeVertexNormals();
   const mesh = new THREE.Mesh(geo, mats.jaw); mesh.frustumCulled = false; mesh.renderOrder = 1; return [mesh];
+}
+
+/* keep any interior vertex inside the head section at its own station (a cavity, never a tunnel) */
+function contain(bm, q, H, slack = .9) {
+  const uq = H.clamp((bm.headX - q.x) / bm.L, .004, .999), fq = {}, sq = {}; bm.frame(uq, fq); bm.section(uq, sq);
+  const ly = H.clamp((q.x - fq.px) * fq.nx + (q.y - fq.py) * fq.ny, -sq.dDn * slack, sq.dUp * slack), hw = bm.halfWidthAtY(sq, ly) * slack * .96;
+  return q.set(fq.px + fq.nx * ly, fq.py + fq.ny * ly, H.clamp(q.z, -hw, hw));
+}
+function blobMesh(bm, mats, H, centre, ax, ay, az, fr, tag, wFn, rows = 8, cols = 12) {
+  const { THREE } = H, geo = new THREE.SphereGeometry(1, cols, rows), P = geo.getAttribute('position'), ab = [], q = new THREE.Vector3();
+  for (let i = 0; i < P.count; i++) {
+    const x = P.getX(i), y = P.getY(i), z = P.getZ(i);
+    q.set(centre.x + fr.tx * ax * x + fr.nx * ay * y, centre.y + fr.ty * ax * x + fr.ny * ay * y, centre.z + az * z);
+    contain(bm, q, H); P.setXYZ(i, q.x, q.y, q.z);
+    ab.push(H.clamp((bm.headX - q.x) / bm.L, .004, .999), .5, tag, wFn(x, y, z));
+  }
+  geo.setAttribute('aBody', new THREE.Float32BufferAttribute(ab, 4)); geo.computeVertexNormals();
+  const mesh = new THREE.Mesh(geo, mats.jaw); mesh.frustumCulled = false; mesh.renderOrder = 1; return mesh;
+}
+/** Layered interior (visible only when the jaw opens): inner walls (the capped pocket), tongue as a floor mass, and the first gill arches hinted in shadow at the back. */
+export function buildInterior(bm, mats, H) {
+  const { THREE } = H, g = bm.g, walls = buildCavity(bm, mats, H), out = [...walls]; walls.forEach(w => { w.userData.layer = "walls"; });
+  const u0 = Math.max(bm.jawStartU, .006), u1 = bm.mcU * .92, depth = Math.min(g.mouth.cavityDepth, CAVITY_MAX) * bm.h * bm.L, fr = {}, sl = new THREE.Vector3(), su = new THREE.Vector3();
+  bm.frame(bm.mcU, fr);
+  const ap = apertureAt(bm, (u0 + u1) / 2, H), ym = skinPoint(bm, (u0 + u1) / 2, mouthLevel(bm, (u0 + u1) / 2, H), 1, new THREE.Vector3(), 0);
+  const lowY = skinPoint(bm, (u0 + u1) / 2, mouthLevel(bm, (u0 + u1) / 2, H) - ap * .98, 1, sl, 0).clone(), upY = skinPoint(bm, (u0 + u1) / 2, mouthLevel(bm, (u0 + u1) / 2, H) + ap * .98, 1, su, 0).clone();
+  const hy = Math.max(1e-5, Math.abs((upY.x - lowY.x) * fr.nx + (upY.y - lowY.y) * fr.ny)) * .5, hw = Math.max(1e-5, bm.halfWidthAtY(bm.section(bm.mcU, {}), 0));
+  const mid = new THREE.Vector3((lowY.x + upY.x) / 2, (lowY.y + upY.y) / 2, 0), L = bm.L;
+  /* tongue: a floor mass resting on the lower jaw floor, its front following the jaw, its root fixed */
+  const tc = mid.clone().addScaledVector(new THREE.Vector3(fr.nx, fr.ny, 0), -hy * .62).addScaledVector(new THREE.Vector3(fr.tx, fr.ty, 0), depth * .25);
+  out.push(Object.assign(blobMesh(bm, mats, H, tc, depth * .55 + (u1 - u0) * L * .3, hy * .42, Math.min(hw * .45, hy * 1.5 + 1e-5), fr, 1.5, (x) => Math.max(0, .5 - x * .5) * (1 - H.sstep(.2, 1, x * .5 + .5) * .4), 8, 14), { userData: { layer: 'tongue' } }));
+  /* first gill arches: thin ribs standing across the throat at the very back, hinted in shadow */
+  const nA = 3 + (g.mouth.gape > .6 ? 1 : 0);
+  for (let k = 0; k < nA; k++) {
+    const back = depth * (.62 + .1 * k), c = mid.clone().addScaledVector(new THREE.Vector3(fr.tx, fr.ty, 0), back);
+    out.push(Object.assign(blobMesh(bm, mats, H, c, depth * .028, hy * .85, Math.min(hw * .5, hy * 1.2 + 1e-5), fr, 1.25, () => 0, 5, 10), { userData: { layer: 'arches' } }));
+  }
+  return out;
 }
 
 /** Shallow floored disc with a lip ring: underside sucker (construction 'sucker') or front cap of a short tube ('tube'). */
