@@ -7,7 +7,7 @@
     "reassemble": "node tools/reassemble.mjs",
     "dev": "node tools/reassemble.mjs && vite",
     "build": "node tools/reassemble.mjs && vite build",
-    "preview": "vite preview"
+    "preview": "node tools/reassemble.mjs && vite preview"
   },
   "dependencies": {
     "clsx": "2.1.1",

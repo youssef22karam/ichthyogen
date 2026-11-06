@@ -146,7 +146,7 @@ function checkFishGeometry(fish) {
     let minZ = Infinity, maxZ = -Infinity, minY = Infinity, maxY = -Infinity;
     for (let i = 0; i < pos.count; i++) { minZ = Math.min(minZ, pos.getZ(i)); maxZ = Math.max(maxZ, pos.getZ(i)); minY = Math.min(minY, pos.getY(i)); maxY = Math.max(maxY, pos.getY(i)); }
     if (fish.bm.isManta && (maxZ - minZ < L * 1.5 || (maxZ - minZ) / Math.max(L * .01, maxY - minY) < 4.5)) errors.push('Manta disc is too narrow or too thick');
-    const flags = fins.getAttribute('aFin');
+    const flags = fish.parts.fins.geometry.getAttribute('aFin');
     for (let i = 0; i < flags.count; i++) if (flags.getW(i) === 3) { errors.push('Batoid pectorals are detached sheets'); break; }
     if (fish.parts.jaw && fish.bm.isManta) errors.push('Manta has a hinged bony jaw');
   }

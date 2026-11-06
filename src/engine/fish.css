@@ -93,3 +93,12 @@ button:disabled{opacity:.4;cursor:not-allowed}
 @media(prefers-reduced-motion:reduce){*,#gl{animation:none!important;transition:none!important}}
 .bar.top #selMix{flex:0 1 150px;min-width:98px}.bar.top #mixRatio{flex:0 0 60px;width:60px!important}.bar.top #btnMix{flex:none}
 .evo-row{display:flex;align-items:center;gap:8px;margin:5px 0;font-size:12px}.evo-lab{flex:0 0 46%;color:var(--txt)}.bar-prog{flex:1;height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden}.bar-prog i{display:block;height:100%;background:var(--acc)}.evo-pct{flex:0 0 34px;text-align:right;color:var(--mut)}.evo-chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.evo-chips button{white-space:normal;text-align:left}
+/* ── Procedural panel ── */
+.pg-card{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:rgba(136,223,191,.06);margin-bottom:8px}
+.pg-name{font-size:16px;font-weight:700}.pg-sci{font-style:italic;color:var(--mut);font-size:12px;margin-bottom:4px}
+.pg-tags{display:flex;gap:4px;flex-wrap:wrap}.pg-tags .chip{cursor:default}
+.pg-hint{font-size:11px;color:var(--mut);margin:2px 0 4px}
+#pgSeed,#pgPartner{font-family:ui-monospace,SFMono-Regular,monospace;letter-spacing:.06em;text-transform:uppercase}
+.thumb.sel{outline:2px solid var(--acc)}
+#btnProc{margin-right:2px}
+.row select#pgClade{max-width:100%;min-width:0;flex:1 1 100%}

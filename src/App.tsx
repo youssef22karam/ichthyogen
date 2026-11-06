@@ -23,7 +23,7 @@ export default function App() {
     <>
       <canvas id="gl" />
       <header className="bar top">
-        <div className="brand">IchthyoGen<small>Hyperreal Anatomy Engine / 04</small></div>
+        <div className="brand">IchthyoGen<small>Hyperreal Anatomy Engine / 04 · Procedural genome</small></div>
         <select id="selHabitat" title="Habitat" aria-label="Habitat"></select>
         <button id="btnRandom" className="primary" title="Invent a never-before-seen species adapted to the selected habitat">Random</button>
         <select id="selNiche" title="Niche" aria-label="Ecological niche"></select>
@@ -39,6 +39,7 @@ export default function App() {
       </header>
       <div id="hud"><div id="fishName">…</div><div id="fishSci"></div><div id="fishTags"></div><div id="stats"></div></div>
       <nav className="bar bottom">
+        <button data-tab="proc" id="btnProc" className="primary" title="Seeded procedural genome: Random, seed, Mutate, Breed, gallery">Procedural</button>
         <button data-act="generate">New Fish</button>
         <button data-act="discover" title="Invent a coherent species that has never existed">Discover</button>
         <select id="selMutation" title="Which anatomical module to evolve" aria-label="Mutation target" defaultValue="auto">

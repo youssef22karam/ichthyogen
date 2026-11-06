@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+import { installProcUI } from './procui.js';
 
 /* ╔══════════════════════════════════════════════════════════════════╗
    ║ 0. NAMESPACE, UTILS, SEEDED PRNG                                 ║

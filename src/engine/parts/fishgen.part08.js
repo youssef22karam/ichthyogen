@@ -1,5 +1,6 @@
 // @@PART js/app.part08.js (8/19) lines 1262-1557 of the original module script -- stripped by build.mjs
 function nameFish(g, rng) {
+  if (g.meta.proc && g.meta.proc.name) { g.meta.name = g.meta.proc.name; g.meta.sci = g.meta.proc.sci + (g.meta.edited ? ' (edited)' : ''); return; }
   if (g.meta.species) {
     const sp = SPECIES.find(s => s.id === g.meta.species);
     if (sp) {
