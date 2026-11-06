@@ -104,8 +104,9 @@ function setCameraView(view) {
   const center = App.fish.info.bounds.getCenter(new THREE.Vector3()), size = App.fish.info.bounds.getSize(new THREE.Vector3()), r = Math.max(size.length() * .5, .001), distance = r / Math.sin(camera.fov * Math.PI / 360) * 1.12;
   const bm = App.fish.bm, L = bm.L, lm3 = {}; for (const l of App.fish.info.landmarks3D) lm3[l.name] = l;
   /* law close-ups: framed on the anatomical landmark the law governs (mouth / eye / tail / underside / fin) */
-  const close = { mouth: [lm3.mouthCorner, new THREE.Vector3(1, .15, .9), .22], eye: [lm3.eye, new THREE.Vector3(.35, .25, 1), .18], tail: [lm3.caudalBase, new THREE.Vector3(-.3, .1, 1), .45], fin: [lm3.pectoralBase, new THREE.Vector3(.2, -.2, 1), .35], below: [null, new THREE.Vector3(.03, -1, .02), 1.12] };
-  if (close[view]) { const [lmk, d, k] = close[view], tgt = lmk ? new THREE.Vector3(lmk.x, lmk.y, lmk.z) : center; tweenCamera(tgt.clone().addScaledVector(d.normalize(), (lmk ? L * k : distance * k)), tgt); return; }
+  const headLen = L * (App.genome.head.lengthFrac || .27), V3 = (x, y, z) => new THREE.Vector3(x, y, z), mid = (a, b, w) => a && b ? V3(a.x + (b.x - a.x) * w, a.y + (b.y - a.y) * w, a.z + (b.z - a.z) * w) : a || b;
+  const close = { mouth: [mid(lm3.snout, lm3.mouthCorner, .55), V3(1, .1, .75), headLen * 1.25, true], mouthbelow: [mid(lm3.snout, lm3.mouthCorner, .55), V3(.35, -1, .25), headLen * 1.25, true], eye: [lm3.eye, V3(.35, .25, 1), headLen * .9, true], tail: [lm3.caudalBase, V3(-.3, .1, 1), L * .45], fin: [lm3.pectoralBase, V3(.2, -.2, 1), L * .35], below: [null, V3(.03, -1, .02), 1.12] };
+  if (close[view]) { const [lmk, d, k] = close[view], tgt = lmk ? new THREE.Vector3(lmk.x, lmk.y, lmk.z) : center; tweenCamera(tgt.clone().addScaledVector(d.normalize(), lmk ? k : distance * k), tgt); return; }
   const dir = view === 'top' ? new THREE.Vector3(.04, 1, .001) : view === 'head' ? new THREE.Vector3(1, .06, .01) : new THREE.Vector3(.02, .05, 1);
   tweenCamera(center.clone().addScaledVector(dir.normalize(), distance), center);
 }
@@ -148,7 +149,7 @@ function animate(now) {
       u.uJawAngle.value = open * u.uJawOpenMax.value; u.uJawProtrude.value = f.bm.protrusile ? open * L * .03 : 0;
       if (t > s.saccT) { s.saccT = t + 0.7 + Math.random() * 2.5; s.saccTarget.set((Math.random() - 0.5) * 0.5, (Math.random() - 0.5) * 0.3); } u.uSacc.value.lerp(s.saccTarget, 1 - Math.exp(-dt * 16));
       u.uInflate.value = lerp(u.uInflate.value, App.inflateTarget, 1 - Math.exp(-dt * 3));
-      if (restPose) { u.uBreath.value = 0; u.uJawAngle.value = 0; u.uJawProtrude.value = 0; u.uInflate.value = 0; u.uFlap.value = 0; } else u.uFlap.value = FLAP[g.swim.mode] || .2;
+      if (restPose) { u.uBreath.value = 0; if (window.__fgJaw == null) { u.uJawAngle.value = 0; u.uJawProtrude.value = 0; } u.uInflate.value = 0; u.uFlap.value = 0; } else u.uFlap.value = FLAP[g.swim.mode] || .2;
       f.group.position.y = reducedMotion || restPose ? 0 : Math.sin(t * .6) * L * .015; f.group.rotation.y = reducedMotion || restPose ? 0 : Math.sin(u.uCycle.value * TAU) * .012 * (1 + b);
     }
     if (App.school && App.schoolOn && dt > 0) App.school.update(dt, t);

@@ -1,6 +1,7 @@
 /* ANATOMY AUDIT — geometry-level validation for barbels / filaments, eyes, jaws + mouth, gills and the head–body junction.
    Called from checkFishGeometry (so it runs for every fish in the 1,000-creature coherence gate and in the in-app tests).
    Every rule reads only axes (plan / niche / swim / depth) and measured geometry — nothing is keyed to a named animal. */
+import { auditLaws } from './lawaudit.js';
 import { APPENDAGE_CAP, barbelLaw, lureLaw, whipLen } from './laws.js';
 
 const EPS = 1e-6;
@@ -82,5 +83,6 @@ export function auditAnatomy(fish, THREE) {
     }
     if (detail && bm.loft && !(bm.loft.geo.getIndex().count > 0)) err('body loft missing');
   }
+  E.push(...auditLaws(fish));
   return E;
 }

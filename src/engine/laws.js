@@ -31,6 +31,8 @@ export function axesOf(g, a, niche, habitat) {
 const has = (ax, ...f) => f.some(x => ax.flags.has(x));
 
 /* ───────────────────────── 2. EYES ───────────────────────── */
+/* the eyeball sphere's radius is EYE_GEO × (genome eye size × head length / 2): bands are stated on the genome unit and as the true measured diameter / head length */
+export const EYE_GEO = .69 / .5;
 export const EYE_PROTRUSION_MAX = 1 / 3;   /* exposed dome height / diameter */
 export function eyeLaw(ax) {
   let band, regime;
@@ -47,7 +49,7 @@ export function eyeLaw(ax) {
   const irisSet = ax.lightless || ax.light < .15 ? ['dark'] : ax.dark ? ['dark', 'copper'] : has(ax, 'ambusher', 'nocturnal', 'lurer') ? ['copper', 'olive'] : regime === 'reduced' ? ['gold'] : ['gold', 'copper', 'olive'];
   const bottomOriented = ax.plan.flat > 0 || has(ax, 'bottomDweller', 'sifter', 'flatBenthic', 'scavenger', 'deepSea', 'crevice');
   const forwardMin = has(ax, 'ambusher', 'lurer') ? .3 : 0;
-  return { band, regime, vestigial: regime === 'vestigial', pupil, pupilId: pupil === 'vertical' ? 1 : pupil === 'horizontal' ? 2 : 0, placement, count: 2, covers: { adipose, nictitating }, irisSet, bottomOriented, forwardMin };
+  return { band, ratioBand: band.map(v => v * EYE_GEO), regime, vestigial: regime === 'vestigial', pupil, pupilId: pupil === 'vertical' ? 1 : pupil === 'horizontal' ? 2 : 0, placement, count: 2, covers: { adipose, nictitating }, irisSet, bottomOriented, forwardMin };
 }
 /* the eyeball is a sphere seated in an orbit: its centre lies EYE_SEAT radii below the skin, so the dome protrudes (1 - EYE_SEAT) / 2 diameters */
 export const EYE_SEAT = .36;
@@ -222,7 +224,7 @@ function sameClass(teeth, cls) {
   return map[teeth] === cls;
 }
 /* largest eye the head can seat above the mouth line — mirrors the clearance repair so the two never oscillate */
-function eyeRoom(g, bp, h) {
+export function eyeRoom(g, bp, h) {
   const d = bp.depth(h * g.head.eyeU); if (!(d > 0)) return 1;
   if (g.head.eyeSide === 'none' || g.body.roll !== 0 || g.head.special === 'hammer') return Math.max(.05, .42 * d / h);
   const headCap = .42 * d / h;                       /* mirrors the eye-in-head repair */
@@ -232,7 +234,7 @@ function eyeRoom(g, bp, h) {
   return Math.max(.05, Math.min(headCap, (dUp * .96 - mouthTop - .1 * d) * .92 / h));
 }
 /* largest gape the head depth allows at the mouth corner — mirrors the gape repair */
-function gapeLimit(g, bp, h) {
+export function gapeLimit(g, bp, h) {
   const hd = bp.depth(h * .75); let gp = .95, it = 0;
   while (it++ < 120 && gp > .05 && gp * hd > .95 * bp.depth(h * (.12 + .6 * gp))) gp -= .01;
   return Math.max(.05, gp);
@@ -253,6 +255,7 @@ export function assertLaws(g, ax, lm, metricsFn) {
   if (lm.mouthCorner > h * g.head.gillStart + 1e-6) fail('mouth_gills', 'mouth corner crosses the gill opening');
   const Fl = finLaw(ax), m = metricsFn(g).finAreaFractions;
   for (const k of ['dorsal', 'anal', 'pectoral', 'pelvic', 'caudal']) if (m[k] > Fl.env[k][1] + 1e-3) fail('fins', `${k} area ${m[k]} outside the ${ax.swim} envelope`);
+  for (const k of ['dorsal', 'anal', 'pectoral', 'caudal']) { if (f[k].present && m[k] < Fl.env[k][0] * .9 - 1e-3) fail('fins', `${k} area ${m[k]} below the ${ax.swim} envelope`); if (Fl.stiff && f[k].present && f[k].flex > Fl.env.flexMax + 1e-6) fail('fins', `${k} not stiff enough for ${ax.swim}`); }
   if (f.dorsal.present && f.dorsal.spines + f.dorsal.rays < RAY_MIN.dorsal) fail('fins', 'dorsal ray count below minimum');
   if (f.anal.present && f.anal.spines + f.anal.rays < RAY_MIN.anal) fail('fins', 'anal ray count below minimum');
   if (f.pectoral.present && f.pectoral.rays < RAY_MIN.pectoral) fail('fins', 'pectoral ray count below minimum');

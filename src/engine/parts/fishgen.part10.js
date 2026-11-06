@@ -23,7 +23,7 @@
           this.rootNormals.push([this.nv, rn.x, rn.y, rn.z]);
         }
         this.pos.push(q.x, q.y, q.z); this.fin.push(t, s, sp.flex, sp.kindId); this.fin2.push(sp.opacity, sp.memb, sp.spineFrac, sp.physicalR || R);
-        this.skin.push(u, ang, sp.solid ? 1 : 0, 0); this.base.push(root.x, root.y, root.z); this.nv++;
+        this.skin.push(u, ang, 0, 0); this.base.push(root.x, root.y, root.z); this.nv++;
       }
     }
     for (let side = 0; side < 2; side++) for (let i = 0; i < R - 1; i++) for (let k = 0; k < K; k++) {
@@ -42,7 +42,7 @@ function addRidgeFin(fb, bm, o) {
   const apex = cfg.apex || .36, curve = cfg.curvature || .48, rootAngle = bm.a.root * (solid ? 3.0 : 1.3), span = o.u1 - o.u0;
   const foil = ['triangle', 'falcate'].includes(o.shape), memb = o.shape === 'spines' ? (bm.a.family === 'lion' ? .25 : bm.a.family === 'rigid' && o.spineFrac > .8 ? .12 : .68) : 1;
   return fb.add({ bm, kind: o.kind, kindId: o.kindId, R: Math.max(o.rays, o.K > 2 ? 18 : 5), physicalR: o.rays, K: o.K, flex: o.flex, opacity: o.opacity, memb, spineFrac: o.spineFrac, solid,
-    blend: cfg.rootBlend || .55, thickness: bm.maxD * bm.a.root * (solid ? .56 : .13), normal: new THREE.Vector3(0, 0, 1),
+    blend: cfg.rootBlend || .55, thickness: bm.maxD * bm.a.root * (solid ? .22 : .13), normal: new THREE.Vector3(0, 0, 1),
     base: (t, out) => { bm.surface(lerp(o.u0, o.u1, t), o.side * Math.PI / 2, p); out.set(p.x, p.y, p.z); },
     root: (t, side, out) => { const u = lerp(o.u0, o.u1, t), th = o.side * Math.PI / 2 - side * rootAngle * Math.pow(Math.max(0, Math.sin(Math.PI * t)), .5); bm.surface(u, th, p); out.set(p.x, p.y, p.z); out.u = u; out.theta = th; },
     edge: (t, out) => {
@@ -61,7 +61,7 @@ function addPectoral(fb, bm, side, K, rays) {
   const th = t => f.v * 1.25 + (disc || foil ? 0 : (.5 - t) * Math.min(f.baseLen, .5) * 1.1);
   const root = (t, skinSide, out) => { const u = rootU(t), a = th(t) + skinSide * bm.a.root * 2 * Math.sin(Math.PI * t), theta = side > 0 ? a : Math.PI - a; bm.surface(u, theta, p); out.set(p.x, p.y, p.z); out.u = u; out.theta = theta; };
   return fb.add({ bm, kind: 'pectoral', kindId: 3, R: Math.max(rays, K > 2 ? 20 : 6), physicalR: rays, K, flex: f.flex, opacity: f.opacity, memb: f.shape === 'filament' ? .3 : bm.a.family === 'lion' ? .8 : 1, spineFrac: 0, solid: bm.a.solid,
-    blend: f.rootBlend, thickness: bm.maxD * bm.a.root * (bm.a.solid ? .65 : .13), normal: new THREE.Vector3(0, 1, 0), root,
+    blend: f.rootBlend, thickness: bm.maxD * bm.a.root * (bm.a.solid ? .24 : .13), normal: new THREE.Vector3(0, 1, 0), root,
     base: (t, out) => { const u = rootU(t), theta = side > 0 ? th(t) : Math.PI - th(t); bm.surface(u, theta, p); out.set(p.x, p.y, p.z); },
     edge: (t, out) => {
       const u = rootU(t), theta = side > 0 ? th(t) : Math.PI - th(t); bm.surface(u, theta, p); base.set(p.x, p.y, p.z);
@@ -122,7 +122,7 @@ function addCaudal(fb, bm, K, rays) {
   };
   const r1 = new THREE.Vector3(), r2 = new THREE.Vector3();
   const res = fb.add({ bm, kind: 'caudal', kindId: 5, R: Math.max(rays | 1, K > 2 ? 31 : 9), K: K > 2 ? K + 1 : K, flex: f.flex, opacity: f.opacity, memb: 1, spineFrac: 0, solid: bm.a.solid, blend: f.rootBlend,
-    thickness: bm.maxD * (bm.a.solid ? .02 : .008), normal: new THREE.Vector3(0, 0, 1), root, attached,
+    thickness: bm.maxD * (bm.a.solid ? .01 : .008), normal: new THREE.Vector3(0, 0, 1), root, attached,
     base: (t, out) => { root(t, 1, r1); root(t, -1, r2); out.copy(r1).add(r2).multiplyScalar(.5); },
     edge: (t, out) => {
       const [x, y] = bend(t, chord * trailing(t), tailY(t));
@@ -184,7 +184,7 @@ function buildEyes(bm, seg, mats) {
 }
 function buildNostrils(bm, mats) {
   const geos = [], g = bm.g, points = {}, normal = new THREE.Vector3();
-  const theta = bm.a.gills === 'lateral' || bm.a.gills === 'ventral' ? -.82 : .23;
+  const theta = bm.a.gills === 'lateral' || bm.a.gills === 'ventral' ? -.82 : .23, nostrilInfo = [];
   for (const side of [-1, 1]) for (const type of [0, ...(g.head.spiracles ? [1] : [])]) {
     const u = type ? bm.lm.eye + bm.h * .12 : bm.a.gills === 'lateral' ? Math.max(.008, bm.jawStartU * .5) : Math.max(.024, bm.lm.eye * .52), base = type && bm.law.flat ? 1.2 : theta + (type ? .4 : 0), th = side > 0 ? base : Math.PI - base;
     bm.rawSurface(u, th, points); bm.surfaceNormal(u, th, normal);
@@ -192,9 +192,9 @@ function buildNostrils(bm, mats) {
     const disk = new THREE.SphereGeometry(rad, 8, 5); disk.scale(.65, .25, 1);
     disk.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal));
     disk.translate(points.x + normal.x * rad * .1, points.y + normal.y * rad * .1, points.z + normal.z * rad * .1);
-    geos.push(disk);
+    geos.push(disk); nostrilInfo.push({ type, side, y: points.y, ny: normal.y });
   }
-  const geo = mergeGeos(geos); skinAttributes(geo, bm, 6); const mesh = new THREE.Mesh(geo, mats.body); mesh.frustumCulled = false; return mesh;
+  const geo = mergeGeos(geos); skinAttributes(geo, bm, 6); const mesh = new THREE.Mesh(geo, mats.body); mesh.frustumCulled = false; mesh.userData.nostrils = nostrilInfo; return mesh;
 }
 function buildTeeth(bm, mats) {
   const g = bm.g, m = g.mouth; if (m.teethCount <= 0 || m.teeth === 'none') return null; const T = TEETH[m.teeth] || TEETH.villiform, rows = bm.law.mouth.teethRows || 1; const count = Math.min(90, m.teethCount), nUp = Math.ceil(count / 2), nDn = count - nUp, hd = headDepth(g, bm.bp) * bm.L;

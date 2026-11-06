@@ -44,7 +44,7 @@ const FS_FIN = GLSL_COMMON_FS + GLSL_PIGMENT + /* glsl */`
 uniform vec3 uFinCol; uniform float uIrid,uGloss; varying vec3 vN, vWP; varying vec4 vFin, vFin2, vSkin; varying vec2 vCirc;
 void main(){ float rayT = vFin.x, lenT = vFin.y, op = vFin2.x, memb = vFin2.y, sf = vFin2.z, R = vFin2.w;
   float rl = abs(fract(rayT*(R-1.0)+0.5)-0.5); float isSpine = step(rayT, sf - 0.001); float rayW = mix(0.08, 0.16, isSpine)*(1.0-0.5*lenT); float ray = 1.0 - smoothstep(rayW, rayW+0.08, rl);
-  if(vSkin.z<.5 && lenT > 1.0-.075*(4.0*rl*rl)) discard;                       /* fin law: trailing edge scalloped between ray tips */
+  if(vSkin.z<.5 && lenT > 1.0-.12*(4.0*rl*rl)) discard;                       /* fin law: trailing edge scalloped between ray tips */
   float branch=1.0-smoothstep(.055,.12,abs(fract(rayT*(R-1.0)*2.0+.5)-.5));
   ray=mix(ray,max(ray*.55,branch*.65),smoothstep(.55,.86,lenT)*(1.0-isSpine));
   if(lenT > memb && ray < .55 && vSkin.z<.5) discard;
@@ -57,10 +57,10 @@ void main(){ float rayT = vFin.x, lenT = vFin.y, op = vFin2.x, memb = vFin2.y, s
   col=mix(col, col*vec3(1.15,1.12,1.06), smoothstep(.75,1.0,lenT)*.5*(1.0-vSkin.z));
   if(vSkin.z>.5) col=mix(skin,uFinCol*.9,smoothstep(.28,1.0,lenT)*.18);
   else {
-    col*=1.0-.09*ray*(1.0-root);
+    col*=1.0-.27*ray*(1.0-root); col=mix(col,col*vec3(1.08,1.06,1.02)+.03,(1.0-ray)*(1.0-root)*.22);
     if(uPattern==2 || uPattern==3) col=mix(col,uAccent,(1.0-root)*uPatStrength*.35*smoothstep(.3,.44,abs(fract(rayT*R*.35)-.5)));
   }
-  float a=mix(max(.22,op*(1.0-.28*lenT)+ray*.08),1.0,root);
+  float a=mix(max(.2,(op*(1.0-.3*lenT))*(0.84+.16*ray)+ray*.1),1.0,root);
   if(vSkin.z>.5) a=1.0;
   vec3 N=normalize(vN); if(!gl_FrontFacing) N=-N;
   vec3 c=wetLight(col,N,vWP,uGloss*.38,(1.0-vSkin.z)*(1.0-root)*.6);                 /* matte / satin membrane */
@@ -178,7 +178,7 @@ function makeMaterials(g, uni, school) {
   const defs = school ? { SCHOOL: 1 } : {}; const mats = { _eyes: [] };
   mats.body = new THREE.ShaderMaterial({ uniforms: uni, vertexShader: VS_BODY, fragmentShader: FS_BODY, defines: Object.assign({}, defs), transparent: g.skin.translucency > 0.05, side: THREE.FrontSide });
   mats.jaw = new THREE.ShaderMaterial({ uniforms: uni, vertexShader: VS_BODY, fragmentShader: FS_BODY, defines: Object.assign({ JAW: 1 }, defs), transparent: g.skin.translucency > 0.05, side: THREE.DoubleSide });
-  mats.fin = new THREE.ShaderMaterial({ uniforms: uni, vertexShader: VS_FIN, fragmentShader: FS_FIN, defines: Object.assign({}, defs), transparent: !anatomyProfile(g).solid, depthWrite: true, side: THREE.DoubleSide, forceSinglePass: true });
+  mats.fin = new THREE.ShaderMaterial({ uniforms: uni, vertexShader: VS_FIN, fragmentShader: FS_FIN, defines: Object.assign({}, defs), transparent: true, depthWrite: true, side: THREE.DoubleSide, forceSinglePass: true });
   mats.eyeOrgan = (glass, eyeCol, axis) => { const m = new THREE.ShaderMaterial({ uniforms: Object.assign({}, uni, { uEyeCol: { value: eyeCol }, uAxis: { value: axis } }), vertexShader: VS_EYE, fragmentShader: FS_EYE, defines: Object.assign({}, defs), transparent: !!glass, depthWrite: !glass, side: glass ? THREE.FrontSide : THREE.DoubleSide }); m.userData.eyeball = true; mats._eyes.push(m); return m; };
   mats.simple = new THREE.ShaderMaterial({ uniforms: uni, vertexShader: VS_SIMPLE, fragmentShader: FS_SIMPLE });
   mats.tooth = new THREE.ShaderMaterial({ uniforms: Object.assign({}, uni, { uColor: { value: new THREE.Color(0.93, 0.9, 0.82) } }), vertexShader: VS_SIMPLE, fragmentShader: FS_SIMPLE, defines: { TEETH: 1 } });
